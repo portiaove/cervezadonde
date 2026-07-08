@@ -16,24 +16,22 @@ and [`decisions/`](./decisions/) for the full design. Package name remains
 
 | Component | Status |
 |---|---|
-| Repo scaffolding + Docker Compose | done |
-| PostGIS schema + migrations v1–v4 | done |
+| Repo scaffolding + Docker Compose + git (`cervezadonde` repo) | done |
+| PostGIS schema + migrations v1–v6 | done |
 | `packages/shared` typed contract (Zod) | done |
-| Deterministic scoring v1 (small-shop framing) | superseded by v2-beer |
 | `chain_patterns` table | done — re-purposed as informational |
-| Sample fixture ingest | done — pre-pivot, awaits beer fixture in M6 |
-| Real Madrid Censo ingest | done — awaits expanded epigraph filter in M6d |
-| Vitest unit tests for scorer v1 | done |
-| API `/health` + `/stores/nearby` | done |
-| Web map (MapLibre + OSM tiles) | done |
+| Real Madrid Censo ingest (bars + shops, scorer v2-beer) | done — 16k stores |
+| Vitest unit tests (scorer v1/v2, openNow, OSM matcher) | done — 102 tests |
+| API `/health` + `/stores/nearby` + `/stores/map` (v2 filters) | done |
 | **M6a — Pivot doc rewrite + ADRs 004/005** | done |
-| **M6b — Schema migration #5 (place_type, hours, OSM enrichment)** | next |
-| **M6c — Scorer v2-beer** | planned |
-| **M6d — Broaden Censo epigraph set (bars + shops)** | planned |
-| **M6e — Open-now evaluator + ADR-004 enforcement** | planned |
-| **M6f — `/stores/nearby` v2 (place_type, intent, open_now, at_time)** | planned |
-| **M6g — OSM enrichment worker** | planned |
-| **M6h — Web UI v2 (time chip, intent filters, marker colours)** | planned |
+| **M6b — Schema migration #5 (place_type, hours, OSM enrichment)** | done |
+| **M6c — Scorer v2-beer** | done |
+| **M6d — Broaden Censo epigraph set (bars + shops)** | done |
+| **M6e — Open-now evaluator + ADR-004 enforcement** | done |
+| **M6f — `/stores/nearby` + `/stores/map` v2 (place_type, intent, open_now, at_time)** | done |
+| **M6g — OSM enrichment worker (Overpass, batched match)** | done — 1.4k stores enriched |
+| **M6h — Web UI v2 (time chip, intent legend, filters, nearest-open card)** | done |
+| **Hours coverage** | ⚠️ ~9% (OSM only) — biggest open problem; evaluating richer sources (Overture, Foursquare OS, feedback) |
 | Store detail page | Phase 2 |
 | User feedback endpoint + moderation | Phase 2 |
 | Deployment + scheduled crons | Phase 3 |

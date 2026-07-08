@@ -1,19 +1,27 @@
 import type { MapStore, NearbyStore } from '@cervezadonde/shared';
+import {
+  type AnyStore,
+  INTENT_COLOR,
+  STATE_RING,
+  intentOf,
+  statusOf,
+  subtitle,
+} from './store-view.js';
 
 type CardStore = MapStore | NearbyStore;
 
-const CONFIDENCE_LABEL: Record<CardStore['confidence_level'], string> = {
-  high: 'Alta probabilidad',
-  medium: 'Probabilidad media',
-  low: 'Probabilidad baja',
-  excluded: 'Excluida',
-};
-
 const formatDistance = (m: number): string =>
-  m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
+  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
 const hasDistance = (s: CardStore): s is NearbyStore =>
   'distance_m' in s && typeof (s as NearbyStore).distance_m === 'number';
+
+const STATE_TEXT: Record<ReturnType<typeof statusOf>, string> = {
+  open: 'Puede servirte cerveza ahora',
+  ordinance: 'Abierto, pero no puede vender para llevar ahora',
+  closed: 'Cerrado ahora',
+  unconfirmed: 'Horario no confirmado',
+};
 
 export function StoreCard({
   store,
@@ -22,29 +30,41 @@ export function StoreCard({
   store: CardStore;
   onClose: () => void;
 }) {
+  const s = store as AnyStore;
+  const state = statusOf(s);
+  const intent = intentOf(s);
   const distanceLabel = hasDistance(store) ? formatDistance(store.distance_m) : null;
+  const closesAt = store.open_now.closes_at;
 
   return (
     <div className="store-card">
       <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar">
         ×
       </button>
-      <h2>{store.name}</h2>
+      <div className="store-card__head">
+        <span
+          className="dot"
+          style={{ background: INTENT_COLOR[intent], borderColor: STATE_RING[state] }}
+          aria-hidden
+        />
+        <h2>{store.name}</h2>
+      </div>
+
       <div className="meta">
-        {store.address ?? 'Dirección no disponible'}
+        {subtitle(s)}
         {distanceLabel ? ` · ${distanceLabel}` : ''}
       </div>
-      <div className="meta">
-        <strong>{CONFIDENCE_LABEL[store.confidence_level]}</strong>
-        {store.neighbourhood ? ` · ${store.neighbourhood}` : ''}
+
+      <div className={`status status--${state}`}>
+        <strong>{STATE_TEXT[state]}</strong>
+        {state === 'open' && closesAt ? ` · hasta las ${closesAt}` : ''}
       </div>
-      <div className="badges">
-        <span className={`badge ${store.confidence_level}`}>
-          {CONFIDENCE_LABEL[store.confidence_level]}
-        </span>
-        {store.badges.map((b) => (
-          <span key={b} className="badge">{b}</span>
-        ))}
+
+      <div className="meta reason">{store.open_now.reason}</div>
+
+      <div className="meta">
+        {store.address ?? 'Dirección no disponible'}
+        {store.neighbourhood ? ` · ${store.neighbourhood}` : ''}
       </div>
     </div>
   );

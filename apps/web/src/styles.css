@@ -3,15 +3,20 @@
   --panel: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
-  --high: #16a34a;
-  --medium: #ca8a04;
-  --low: #6b7280;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --barra: #c2410c;
+  --lata: #1d4ed8;
+  --open: #16a34a;
+  --ordinance: #f59e0b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -24,6 +29,70 @@ html, body, #root {
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* --- top-left stack: time chip + filters --- */
+.top-left {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 12px;
+  right: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.top-left > * {
+  pointer-events: auto;
+}
+
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 6px 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+}
+.time-chip__clock {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.time-chip__state {
+  font-weight: 600;
+}
+.time-chip__state.ok {
+  color: var(--open);
+}
+.time-chip__state.closed {
+  color: #dc2626;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  background: var(--panel);
+  color: #334155;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.chip--on {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
 }
 
 .locate-btn {
@@ -42,6 +111,125 @@ html, body, #root {
   cursor: pointer;
 }
 
+/* --- legend --- */
+.legend {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 34px;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  color: var(--text);
+  max-width: 62vw;
+}
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+.legend__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+}
+.legend__ring {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  background: #fff;
+}
+.legend__ring--open {
+  border: 2.5px solid var(--open);
+}
+.legend__ring--faded {
+  border: 1.5px solid #cbd5e1;
+  opacity: 0.7;
+}
+.legend__sep {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 6px 0;
+}
+
+/* --- markers (react-map-gl Marker overlays) --- */
+.user-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+}
+.nearest-ring {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid var(--open);
+  background: rgba(22, 163, 74, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+/* --- nearest-open banner (the "Ambos" card) --- */
+.nearest {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  right: 12px;
+  bottom: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--text);
+  border: none;
+  border-left: 4px solid var(--open);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+.nearest--muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.nearest__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--open);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.nearest__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.nearest__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  flex: none;
+}
+
+/* --- attribution --- */
 .attribution {
   position: absolute;
   z-index: 4;
@@ -53,12 +241,13 @@ html, body, #root {
   padding: 4px 8px;
   border-radius: 6px;
   line-height: 1.3;
-  max-width: 70vw;
+  max-width: 60vw;
 }
 
+/* --- store detail card (bottom sheet) --- */
 .store-card {
   position: absolute;
-  z-index: 6;
+  z-index: 7;
   left: 12px;
   right: 12px;
   bottom: 12px;
@@ -68,38 +257,49 @@ html, body, #root {
   padding: 14px 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
-
+.store-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .store-card h2 {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-size: 17px;
   font-weight: 700;
 }
-
 .store-card .meta {
   color: var(--muted);
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-top: 4px;
+}
+.store-card .reason {
+  font-style: italic;
 }
 
-.store-card .badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 999px;
+.status {
+  margin-top: 8px;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
   background: #f1f5f9;
   color: #334155;
-  text-transform: lowercase;
 }
-
-.badge.high { background: #dcfce7; color: #166534; }
-.badge.medium { background: #fef9c3; color: #854d0e; }
-.badge.low { background: #f1f5f9; color: #475569; }
+.status--open {
+  background: #dcfce7;
+  color: #166534;
+}
+.status--ordinance {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status--closed {
+  background: #f1f5f9;
+  color: #475569;
+}
+.status--unconfirmed {
+  background: #e0f2fe;
+  color: #075985;
+}
 
 .close-btn {
   position: absolute;

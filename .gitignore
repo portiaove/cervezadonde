@@ -25,3 +25,6 @@ Thumbs.db
 # runtime data (root or any workspace subdir)
 **/data/postgres/
 **/data/raw/
+
+# TypeScript incremental build info
+*.tsbuildinfo

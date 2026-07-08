@@ -6,9 +6,16 @@ Repo scaffolding, PostGIS up, fixture ingest, /stores/nearby, map UI.
 First milestone of pre-pivot work — kept intact, sample fixture lives under
 `source_name='madrid_sample_fixture'`.
 
-## Phase 1 — Beer-MVP foundation (current)
+## Phase 1 — Beer-MVP foundation (done)
 
 Goal: ship the beer-now product, end-to-end, against real Madrid data + OSM.
+
+**Status: complete.** M6a–M6h all shipped. The app runs end-to-end: 16k
+Censo stores classified by `place_type` + intent, the open-now evaluator
+honours the 22:00 ordinance, `/stores/map` + `/stores/nearby` expose the v2
+filters, the OSM enrichment worker materialises real `opening_hours`, and the
+web UI has the time chip, lata/barra legend, intent filters and the
+nearest-open card. 102 Vitest cases green.
 
 Deliverables:
 
@@ -37,6 +44,27 @@ Exit criteria:
 - At 13:00 the map shows bars + shops, all green for the open ones.
 - At 23:30 shops are amber ("no puede vender ahora"); bars stay green.
 - Top-3 nearby results for Sol are real, walkable, accurate by intent.
+
+## Phase 1.5 — Hours coverage (current)
+
+The single biggest gap to product usefulness. OSM alone materialised
+opening hours onto only ~9% of stores (supermercado 28%, bar 9.6%,
+alimentacion 4.1%). At most times most of the map reads "horario no
+confirmado", which blunts the core promise.
+
+Work:
+
+- Evaluate + integrate richer open hours sources beyond OSM — candidates:
+  Overture Maps Places, Foursquare Open-Source Places, business structured
+  data (schema.org `openingHours`). Keep provenance separable per source
+  (same discipline as `store_osm_enrichment`). Never Google (ADR-003).
+- Ship the community-feedback loop early (Phase 2 item pulled forward) so
+  users can confirm/correct hours where no dataset has them.
+- Consider conservative default-hours heuristics per `place_type` as a
+  clearly-labelled fallback ("horario habitual estimado"), never presented
+  as confirmed.
+
+See `docs/12-hours-data-sources.md` for the source evaluation.
 
 ## Phase 2 — Product quality
 
