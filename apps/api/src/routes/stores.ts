@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getSql, type Sql } from '@minimarket/db';
+import { getSql, type Sql } from '@cervezadonde/db';
 import {
   type Intent,
   MapQuery,
@@ -10,7 +10,7 @@ import {
   type NearbyStore,
   type Ordinance,
   type PlaceType,
-} from '@minimarket/shared';
+} from '@cervezadonde/shared';
 import {
   ORDINANCE,
   canSellBeerNow,

@@ -123,7 +123,7 @@ LIMIT 10;
 ## When the scorer changes
 
 ```powershell
-pnpm --filter @minimarket/worker test    # unit tests must pass
+pnpm --filter @cervezadonde/worker test    # unit tests must pass
 pnpm worker:ingest:madrid                # cache hit, re-scores in place
 ```
 

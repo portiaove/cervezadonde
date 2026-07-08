@@ -121,5 +121,5 @@ Two real constraints make this harder than it looks:
 
 ## Public-facing name
 
-Deferred. Internal code/package stays `minimarket-madrid` for now. Public
+Deferred. Internal code/package stays `cervezadonde` for now. Public
 name decided alongside the deployment in Phase 3.

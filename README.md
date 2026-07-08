@@ -10,7 +10,7 @@ municipal ordinance forbidding takeaway alcohol between 22:00 and 09:00
 
 No Google Maps scraping. See [`BLUEPRINT.md`](./BLUEPRINT.md), [`docs/`](./docs)
 and [`decisions/`](./decisions/) for the full design. Package name remains
-`minimarket-madrid` until the public name is chosen in Phase 3.
+`cervezadonde` until the public name is chosen in Phase 3.
 
 ## Status
 

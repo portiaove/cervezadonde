@@ -1,7 +1,7 @@
 # Implementation Brief for Codex / Claude Code
 
 You are implementing the MVP for the project currently packaged as
-`minimarket-madrid`, but whose product question is:
+`cervezadonde`, but whose product question is:
 
 > "¿Dónde puedo conseguir una cerveza ahora mismo, cerca de mí?" (Madrid only)
 

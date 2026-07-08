@@ -1,4 +1,4 @@
-import type { MapStore, NearbyStore } from '@minimarket/shared';
+import type { MapStore, NearbyStore } from '@cervezadonde/shared';
 
 type CardStore = MapStore | NearbyStore;
 

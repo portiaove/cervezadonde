@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { closeSql } from '@minimarket/db';
+import { closeSql } from '@cervezadonde/db';
 import { ingestSample } from './ingest-sample.js';
 import { ingestMadrid } from './ingest-madrid.js';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';

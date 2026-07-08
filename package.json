@@ -1,9 +1,9 @@
 {
-  "name": "minimarket-madrid",
+  "name": "cervezadonde",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Madrid-only web map for small neighbourhood convenience shops.",
+  "description": "cervezadonde.es — find the nearest open beer in Madrid (lata or barra), honouring opening hours and the municipal alcohol ordinance.",
   "engines": {
     "node": ">=20.10.0",
     "pnpm": ">=9.0.0"
@@ -17,12 +17,12 @@
     "test": "pnpm -r test",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:migrate": "dotenv -e .env -- pnpm --filter @minimarket/db migrate up",
-    "worker:ingest:sample": "dotenv -e .env -- pnpm --filter @minimarket/worker ingest:sample",
-    "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @minimarket/worker ingest:madrid",
-    "worker:diagnose:madrid": "dotenv -e .env -- pnpm --filter @minimarket/worker diagnose:madrid",
-    "api:dev": "dotenv -e .env -- pnpm --filter @minimarket/api dev",
-    "web:dev": "pnpm --filter @minimarket/web dev"
+    "db:migrate": "dotenv -e .env -- pnpm --filter @cervezadonde/db migrate up",
+    "worker:ingest:sample": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:sample",
+    "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:madrid",
+    "worker:diagnose:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker diagnose:madrid",
+    "api:dev": "dotenv -e .env -- pnpm --filter @cervezadonde/api dev",
+    "web:dev": "pnpm --filter @cervezadonde/web dev"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

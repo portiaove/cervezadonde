@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import Map, { Layer, Source, type MapRef, type ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import type { StyleSpecification } from 'maplibre-gl';
-import type { MapStore } from '@minimarket/shared';
+import type { MapStore } from '@cervezadonde/shared';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMap } from './api.js';
 import { StoreCard } from './StoreCard.js';

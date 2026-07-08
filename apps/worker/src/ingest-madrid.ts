@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { getSql, type Sql } from '@minimarket/db';
+import { getSql, type Sql } from '@cervezadonde/db';
 import { downloadIfNeeded } from './download.js';
 import {
   MADRID_ACTIVIDADES_COLUMNS,

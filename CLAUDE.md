@@ -1,18 +1,22 @@
-# Agent Instructions — MiniMarket Madrid
+# Agent Instructions — cervezadonde.es
 
-You are working on MiniMarket Madrid as a founding CTO / lead engineer.
+You are working on **cervezadonde.es** as a founding CTO / lead engineer.
 
-This is a Madrid-only MVP for finding small neighbourhood food/convenience shops: alimentaciones, ultramarinos, mini-markets, bodegas, tiendas 24h and similar stores.
+This is a Madrid-only MVP that answers one question, fast:
+
+> **"¿Dónde está la cerveza abierta más cercana, ahora mismo?"**
+
+The map covers bars, cafeterías, supermercados, alimentaciones, bodegas and
+tiendas 24h. Every place carries an **intent**: **barra** (para tomar — bars,
+cafeterías, restaurantes) or **lata** (para llevar — súper, alimentación,
+bodega, gasolinera). The answer must respect opening hours and Madrid's
+municipal ordinance forbidding takeaway alcohol between 22:00 and 09:00.
 
 ## Product mindset
 
-The user problem is simple:
-
-> “I am nearby and need to quickly find a small shop where I can buy basic groceries, beer, snacks or last-minute things.”
-
-Prioritize usefulness, speed and clarity.
-
-Do not build features that distract from this core use case.
+Prioritize usefulness, speed and clarity. The product talks about *places*,
+*intent* (barra/lata) and *hours* — never about owners. Do not build features
+that distract from "find the nearest open beer right now".
 
 ## Engineering mindset
 

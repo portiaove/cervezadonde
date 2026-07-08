@@ -108,7 +108,7 @@ Internal field name: `place_type`. Never `owner_origin`.
 ## 7. Repo structure
 
 ```
-minimarket-madrid/
+cervezadonde/
   README.md
   BLUEPRINT.md
   docs/
