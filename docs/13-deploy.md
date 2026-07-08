@@ -22,7 +22,9 @@ On the server:
 git clone https://github.com/portiaove/cervezadonde.git
 cd cervezadonde
 cp deploy/.env.prod.example deploy/.env.prod
-# edit deploy/.env.prod: set a strong POSTGRES_PASSWORD, confirm SITE_ADDRESS
+# edit deploy/.env.prod: set POSTGRES_PASSWORD to `openssl rand -hex 24`
+# (hex, URL-safe — base64's / + = chars break the postgres:// URL), confirm
+# SITE_ADDRESS
 ```
 
 Build the web app **on your PC** (same-origin API path) and upload it:
