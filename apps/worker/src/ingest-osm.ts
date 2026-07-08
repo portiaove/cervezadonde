@@ -90,64 +90,121 @@ async function fetchOverpassCached(opts: {
   return { text, hash, fromCache: false, path: dest };
 }
 
-async function upsertEnrichment(sql: Sql, p: OsmPlace): Promise<void> {
-  await sql`
-    INSERT INTO store_osm_enrichment (
-      osm_id, osm_type, geom, name_osm, address_osm,
-      opening_hours_raw, shop_tag, amenity_tag, tags, last_fetched_at, updated_at
-    ) VALUES (
-      ${p.osmId}, ${p.osmType},
-      ST_SetSRID(ST_MakePoint(${p.lon}, ${p.lat}), 4326),
-      ${p.name}, ${p.address}, ${p.openingHours}, ${p.shopTag}, ${p.amenityTag},
-      ${sql.json(p.tags)}, now(), now()
-    )
-    ON CONFLICT (osm_id, osm_type) DO UPDATE SET
-      geom = EXCLUDED.geom,
-      name_osm = EXCLUDED.name_osm,
-      address_osm = EXCLUDED.address_osm,
-      opening_hours_raw = EXCLUDED.opening_hours_raw,
-      shop_tag = EXCLUDED.shop_tag,
-      amenity_tag = EXCLUDED.amenity_tag,
-      tags = EXCLUDED.tags,
-      last_fetched_at = now(),
-      updated_at = now()
-  `;
+/** Max rows per bulk statement — keeps array parameters a sane size. */
+const CHUNK = 2000;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
-async function findCandidates(sql: Sql, p: OsmPlace): Promise<StoreCandidate[]> {
-  return sql<StoreCandidate[]>`
-    WITH origin AS (
-      SELECT ST_SetSRID(ST_MakePoint(${p.lon}, ${p.lat}), 4326)::geography AS g
-    )
+type CandidatePair = StoreCandidate & { osmId: number; osmType: string };
+
+type MatchRow = {
+  osmId: number;
+  osmType: string;
+  storeId: number;
+  matchedBy: string;
+  dist: number;
+  score: number;
+};
+
+/** Bulk upsert parsed OSM places into store_osm_enrichment (one stmt/chunk). */
+async function bulkUpsertEnrichment(sql: Sql, places: OsmPlace[]): Promise<void> {
+  for (const part of chunk(places, CHUNK)) {
+    const ids = part.map((p) => p.osmId);
+    const types = part.map((p) => p.osmType);
+    const lons = part.map((p) => p.lon);
+    const lats = part.map((p) => p.lat);
+    const names = part.map((p) => p.name);
+    const addrs = part.map((p) => p.address);
+    const hours = part.map((p) => p.openingHours);
+    const shops = part.map((p) => p.shopTag);
+    const amenities = part.map((p) => p.amenityTag);
+    const tags = part.map((p) => JSON.stringify(p.tags));
+    await sql`
+      INSERT INTO store_osm_enrichment (
+        osm_id, osm_type, geom, name_osm, address_osm,
+        opening_hours_raw, shop_tag, amenity_tag, tags, last_fetched_at, updated_at
+      )
+      SELECT
+        t.osm_id, t.osm_type,
+        ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326),
+        t.name_osm, t.address_osm, t.opening_hours_raw, t.shop_tag, t.amenity_tag,
+        t.tags::jsonb, now(), now()
+      FROM unnest(
+        ${ids}::bigint[], ${types}::text[], ${lons}::float8[], ${lats}::float8[],
+        ${names}::text[], ${addrs}::text[], ${hours}::text[], ${shops}::text[],
+        ${amenities}::text[], ${tags}::text[]
+      ) AS t(osm_id, osm_type, lon, lat, name_osm, address_osm,
+             opening_hours_raw, shop_tag, amenity_tag, tags)
+      ON CONFLICT (osm_id, osm_type) DO UPDATE SET
+        geom = EXCLUDED.geom,
+        name_osm = EXCLUDED.name_osm,
+        address_osm = EXCLUDED.address_osm,
+        opening_hours_raw = EXCLUDED.opening_hours_raw,
+        shop_tag = EXCLUDED.shop_tag,
+        amenity_tag = EXCLUDED.amenity_tag,
+        tags = EXCLUDED.tags,
+        last_fetched_at = now(),
+        updated_at = now()
+    `;
+  }
+}
+
+/**
+ * For every enrichment row touched this run, fetch up to 5 candidate stores
+ * within the match radius — one set-based query with a spatial LATERAL join
+ * (uses the stores_geog_gix functional index). Name scoring happens in JS.
+ */
+async function fetchCandidatePairs(sql: Sql, runStart: Date): Promise<CandidatePair[]> {
+  return sql<CandidatePair[]>`
     SELECT
-      s.id                                              AS "storeId",
-      s.normalized_name                                 AS "normalizedName",
-      ST_Distance(s.geom::geography, origin.g)::float8  AS "distanceM"
-    FROM stores s, origin
-    WHERE s.confidence_level <> 'excluded'
-      AND ST_DWithin(s.geom::geography, origin.g, ${MATCH_RADIUS_M})
-    ORDER BY s.geom::geography <-> origin.g
-    LIMIT 10
+      e.osm_id            AS "osmId",
+      e.osm_type          AS "osmType",
+      c.store_id          AS "storeId",
+      c.normalized_name   AS "normalizedName",
+      c.dist              AS "distanceM"
+    FROM store_osm_enrichment e
+    CROSS JOIN LATERAL (
+      SELECT
+        s.id                                              AS store_id,
+        s.normalized_name                                 AS normalized_name,
+        ST_Distance(s.geom::geography, e.geom::geography)::float8 AS dist
+      FROM stores s
+      WHERE s.confidence_level <> 'excluded'
+        AND ST_DWithin(s.geom::geography, e.geom::geography, ${MATCH_RADIUS_M})
+      ORDER BY s.geom::geography <-> e.geom::geography
+      LIMIT 5
+    ) c
+    WHERE e.last_fetched_at >= ${runStart}
   `;
 }
 
-async function applyMatch(
-  sql: Sql,
-  p: OsmPlace,
-  storeId: number,
-  matchedBy: string,
-  distanceM: number,
-  score: number,
-): Promise<void> {
-  await sql`
-    UPDATE store_osm_enrichment SET
-      store_id = ${storeId},
-      matched_by = ${matchedBy},
-      match_distance_m = ${distanceM},
-      match_score = ${score},
-      updated_at = now()
-    WHERE osm_id = ${p.osmId} AND osm_type = ${p.osmType}
-  `;
+/** Bulk write match results back onto store_osm_enrichment (one stmt/chunk). */
+async function bulkApplyMatches(sql: Sql, matches: MatchRow[]): Promise<void> {
+  for (const part of chunk(matches, CHUNK)) {
+    const osmIds = part.map((m) => m.osmId);
+    const osmTypes = part.map((m) => m.osmType);
+    const storeIds = part.map((m) => m.storeId);
+    const matchedBys = part.map((m) => m.matchedBy);
+    const dists = part.map((m) => m.dist);
+    const scores = part.map((m) => m.score);
+    await sql`
+      UPDATE store_osm_enrichment t SET
+        store_id = u.store_id,
+        matched_by = u.matched_by,
+        match_distance_m = u.dist,
+        match_score = u.score,
+        updated_at = now()
+      FROM unnest(
+        ${osmIds}::bigint[], ${osmTypes}::text[], ${storeIds}::bigint[],
+        ${matchedBys}::text[], ${dists}::float8[], ${scores}::float8[]
+      ) AS u(osm_id, osm_type, store_id, matched_by, dist, score)
+      WHERE t.osm_id = u.osm_id AND t.osm_type = u.osm_type
+    `;
+  }
 }
 
 /**
@@ -225,24 +282,49 @@ export async function ingestOsm(opts: {
   let storesEnriched = 0;
 
   try {
-    let i = 0;
-    for (const p of places) {
-      await upsertEnrichment(sql, p);
-      enrichmentUpserted += 1;
+    await bulkUpsertEnrichment(sql, places);
+    enrichmentUpserted = places.length;
+    log(`upserted ${enrichmentUpserted} enrichment rows`);
 
-      const candidates = await findCandidates(sql, p);
-      const match = selectMatch(p, candidates);
-      if (match) {
-        await applyMatch(sql, p, match.storeId, match.matchedBy, match.distanceM, match.score);
-        if (match.matchedBy === 'both') matchedBoth += 1;
-        else matchedSpatial += 1;
-      } else {
-        unmatched += 1;
-      }
+    const pairs = await fetchCandidatePairs(sql, runStart);
+    log(`fetched ${pairs.length} candidate pairs within ${MATCH_RADIUS_M} m`);
 
-      i += 1;
-      if (i % 1000 === 0) log(`  processed ${i}/${places.length}`);
+    // Group candidate stores by their OSM element, then run the (tested,
+    // token-set) matcher in memory.
+    const byElement = new Map<string, StoreCandidate[]>();
+    for (const r of pairs) {
+      const key = `${r.osmType}:${r.osmId}`;
+      const cand: StoreCandidate = {
+        storeId: r.storeId,
+        normalizedName: r.normalizedName,
+        distanceM: r.distanceM,
+      };
+      const list = byElement.get(key);
+      if (list) list.push(cand);
+      else byElement.set(key, [cand]);
     }
+
+    const matches: MatchRow[] = [];
+    for (const p of places) {
+      const cands = byElement.get(`${p.osmType}:${p.osmId}`) ?? [];
+      const m = selectMatch(p, cands);
+      if (!m) {
+        unmatched += 1;
+        continue;
+      }
+      matches.push({
+        osmId: p.osmId,
+        osmType: p.osmType,
+        storeId: m.storeId,
+        matchedBy: m.matchedBy,
+        dist: m.distanceM,
+        score: m.score,
+      });
+      if (m.matchedBy === 'both') matchedBoth += 1;
+      else matchedSpatial += 1;
+    }
+    await bulkApplyMatches(sql, matches);
+    log(`matched ${matchedBoth} both + ${matchedSpatial} spatial; ${unmatched} unmatched`);
 
     storesEnriched = await materialiseHours(sql, runStart);
     log(`materialised opening_hours onto ${storesEnriched} stores`);
