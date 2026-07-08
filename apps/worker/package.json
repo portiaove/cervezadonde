@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "ingest:sample": "tsx src/cli.ts ingest:sample",
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
+    "ingest:osm": "tsx src/cli.ts ingest:osm",
     "diagnose:madrid": "tsx src/cli.ts diagnose:madrid"
   },
   "dependencies": {

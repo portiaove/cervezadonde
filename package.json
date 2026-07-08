@@ -20,6 +20,7 @@
     "db:migrate": "dotenv -e .env -- pnpm --filter @cervezadonde/db migrate up",
     "worker:ingest:sample": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:sample",
     "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:madrid",
+    "worker:ingest:osm": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm",
     "worker:diagnose:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker diagnose:madrid",
     "api:dev": "dotenv -e .env -- pnpm --filter @cervezadonde/api dev",
     "web:dev": "pnpm --filter @cervezadonde/web dev"
