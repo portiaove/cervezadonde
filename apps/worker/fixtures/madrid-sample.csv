@@ -1,0 +1,33 @@
+source_local_id,name,address,postal_code,district,neighbourhood,x_25830,y_25830,epigraph_code,epigraph_description,official_status
+L0001,ALIMENTACION LOS PINOS,Calle Argumosa 12,28012,Centro,Embajadores,440990,4473590,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0002,MINI MARKET 24H SOL,Calle de la Montera 8,28013,Centro,Sol,440660,4474370,471103,Tienda de conveniencia,Abierto
+L0003,BODEGA EL TINTO,Calle Augusto Figueroa 17,28004,Centro,Justicia,441200,4475020,472502,Bebidas alcoholicas sin consumo,Abierto
+L0004,ULTRAMARINOS LA CASTELLANA,Calle Cardenal Cisneros 22,28010,Chamberi,Trafalgar,440410,4476370,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0005,TIENDA DE BARRIO HERMANOS,Calle Espiritu Santo 13,28004,Centro,Universidad,440690,4475340,471104,Comercio no especializado envasado,Abierto
+L0006,SNACK AND GO,Plaza del Emperador Carlos V 4,28012,Centro,Embajadores,441745,4473220,472907,Frutos secos y aperitivos,Abierto
+L0007,ALIMENTACION ABIERTO 24H VALLECAS,Avenida de la Albufera 90,28038,Puente de Vallecas,Numancia,443930,4471650,471103,Tienda de conveniencia,Abierto
+L0008,FRUTOS SECOS PEPE,Calle Meson de Paredes 41,28012,Centro,Embajadores,440970,4473570,472907,Frutos secos y aperitivos,Abierto
+L0009,SUPERMERCADO DIA,Calle Goya 31,28001,Salamanca,Goya,442550,4475200,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0010,MERCADONA,Paseo de los Olivos 38,28025,Carabanchel,Comillas,437160,4470800,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0011,ALIMENTACION GENERAL,Calle Bravo Murillo 240,28020,Tetuan,Bellas Vistas,441100,4479110,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0012,BODEGA Y ESPACIO DE BEBIDAS,Calle Princesa 47,28008,Moncloa-Aravaca,Arguelles,439780,4475710,472502,Bebidas alcoholicas sin consumo,Abierto
+L0013,ALIMENTACION LATINA,Calle Toledo 81,28005,Centro,Palacio,438950,4473030,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0014,MINIMARKET MONCLOA,Calle Princesa 89,28008,Moncloa-Aravaca,Arguelles,439340,4476500,471103,Tienda de conveniencia,Abierto
+L0015,ULTRAMARINOS QUEVEDO,Calle Fuencarral 130,28010,Chamberi,Trafalgar,440230,4476530,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0016,ALIMENTACION CHAMBERI,Calle Eloy Gonzalo 16,28010,Chamberi,Trafalgar,440405,4476380,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0017,APERITIVOS Y SNACKS PLAZA,Calle Mayor 22,28013,Centro,Sol,440350,4474220,472908,Patatas fritas y aperitivos,Abierto
+L0018,ALIMENTACION 24 HORAS PRINCESA,Calle Princesa 12,28008,Moncloa-Aravaca,Arguelles,439920,4475110,471103,Tienda de conveniencia,Abierto
+L0019,BODEGA RETIRO,Calle Ibiza 9,28009,Retiro,Ibiza,442540,4474700,472502,Bebidas alcoholicas sin consumo,Abierto
+L0020,TIENDA DE CONVENIENCIA EMBAJADORES,Calle Embajadores 70,28012,Centro,Embajadores,440990,4472900,471103,Tienda de conveniencia,Abierto
+L0021,ALIMENTACION ANTON MARTIN,Calle Magdalena 28,28012,Centro,Embajadores,441010,4473890,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0022,CARREFOUR EXPRESS,Calle Bravo Murillo 90,28003,Chamberi,Cuatro Caminos,440580,4477700,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0023,ULTRAMARINOS BILBAO,Calle Sagasta 27,28004,Centro,Justicia,440680,4475730,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0024,SNACK SHOP IBIZA,Calle Ibiza 35,28009,Retiro,Ibiza,442600,4474720,472909,Aperitivos varios,Abierto
+L0025,ALIMENTACION ARGUELLES,Calle Quintana 14,28008,Moncloa-Aravaca,Arguelles,439500,4475870,471101,Comercio no especializado con predominio de alimentacion,Abierto
+L0026,ALIMENTACION CERRADA,Calle Olvido 5,28012,Centro,Embajadores,441100,4473500,471101,Comercio no especializado con predominio de alimentacion,Baja
+L0027,LA CERVECERIA DEL DUQUE,Calle del Pez 15,28004,Centro,Universidad,440700,4475250,561001,Bares,Abierto
+L0028,CAFE LOS ARCOS,Calle Mayor 5,28013,Centro,Sol,440380,4474320,561005,Cafeterias,Abierto
+L0029,TABERNA EL ABUELO,Calle Toledo 60,28005,Centro,Palacio,439000,4473400,561001,Bares,Abierto
+L0030,IRISH PUB SHAMROCK,Calle Fuencarral 100,28010,Chamberi,Trafalgar,440350,4476100,561004,Bares especiales,Abierto
+L0031,CAFETERIA EL PARAISO,Calle Goya 50,28001,Salamanca,Goya,442650,4475210,561005,Cafeterias,Abierto
+L0032,BAR PEPE,Calle Princesa 40,28008,Moncloa-Aravaca,Argüelles,439790,4475650,561001,Bares,Abierto

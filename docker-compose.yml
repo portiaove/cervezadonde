@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: minimarket-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: minimarket
+      POSTGRES_PASSWORD: minimarket
+      POSTGRES_DB: minimarket
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minimarket -d minimarket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

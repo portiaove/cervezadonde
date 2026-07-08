@@ -1,0 +1,26 @@
+{
+  "name": "@minimarket/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ingest:sample": "tsx src/cli.ts ingest:sample",
+    "ingest:madrid": "tsx src/cli.ts ingest:madrid",
+    "diagnose:madrid": "tsx src/cli.ts diagnose:madrid"
+  },
+  "dependencies": {
+    "@minimarket/db": "workspace:*",
+    "@minimarket/shared": "workspace:*",
+    "commander": "^12.1.0",
+    "csv-parse": "^5.5.6"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

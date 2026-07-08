@@ -1,0 +1,32 @@
+{
+  "name": "minimarket-madrid",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Madrid-only web map for small neighbourhood convenience shops.",
+  "engines": {
+    "node": ">=20.10.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @minimarket/db migrate up",
+    "worker:ingest:sample": "dotenv -e .env -- pnpm --filter @minimarket/worker ingest:sample",
+    "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @minimarket/worker ingest:madrid",
+    "worker:diagnose:madrid": "dotenv -e .env -- pnpm --filter @minimarket/worker diagnose:madrid",
+    "api:dev": "dotenv -e .env -- pnpm --filter @minimarket/api dev",
+    "web:dev": "pnpm --filter @minimarket/web dev"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "dotenv-cli": "^7.4.2",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,8 @@
+# Normalize line endings: LF in the repo, native in the working copy.
+* text=auto
+
+# Keep these as-is (binary-ish / tooling-managed)
+pnpm-lock.yaml -text
+*.png binary
+*.jpg binary
+*.ico binary
