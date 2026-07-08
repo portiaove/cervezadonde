@@ -31,7 +31,7 @@ and [`decisions/`](./decisions/) for the full design. Package name remains
 | **M6f — `/stores/nearby` + `/stores/map` v2 (place_type, intent, open_now, at_time)** | done |
 | **M6g — OSM enrichment worker (Overpass, batched match)** | done — 1.4k stores enriched |
 | **M6h — Web UI v2 (time chip, intent legend, filters, nearest-open card)** | done |
-| **Hours coverage** | ⚠️ ~9% (OSM only) — biggest open problem; evaluating richer sources (Overture, Foursquare OS, feedback) |
+| **Hours coverage** | ⚠️ ~9% (OSM only) — biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
 | Store detail page | Phase 2 |
 | User feedback endpoint + moderation | Phase 2 |
 | Deployment + scheduled crons | Phase 3 |
@@ -158,6 +158,7 @@ ingest details.
 - [`docs/09-legal-data-governance.md`](./docs/09-legal-data-governance.md) — Madrid + OSM + ordinance
 - [`docs/10-delivery-plan.md`](./docs/10-delivery-plan.md) — M6 plan
 - [`docs/11-runbook.md`](./docs/11-runbook.md) — operations runbook
+- [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours (the open problem)
 - [`decisions/ADR-001-stack.md`](./decisions/ADR-001-stack.md)
 - [`decisions/ADR-002-data-sources.md`](./decisions/ADR-002-data-sources.md)
 - [`decisions/ADR-003-no-google-scraping.md`](./decisions/ADR-003-no-google-scraping.md)
