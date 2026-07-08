@@ -1,6 +1,11 @@
 # Normalize line endings: LF in the repo, native in the working copy.
 * text=auto
 
+# Files consumed on Linux must stay LF even when checked out on Windows.
+*.sh text eol=lf
+Dockerfile* text eol=lf
+Caddyfile text eol=lf
+
 # Keep these as-is (binary-ish / tooling-managed)
 pnpm-lock.yaml -text
 *.png binary

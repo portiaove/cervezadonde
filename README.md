@@ -159,11 +159,13 @@ ingest details.
 - [`docs/10-delivery-plan.md`](./docs/10-delivery-plan.md) — M6 plan
 - [`docs/11-runbook.md`](./docs/11-runbook.md) — operations runbook
 - [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours (the open problem)
+- [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
 - [`decisions/ADR-001-stack.md`](./decisions/ADR-001-stack.md)
 - [`decisions/ADR-002-data-sources.md`](./decisions/ADR-002-data-sources.md)
 - [`decisions/ADR-003-no-google-scraping.md`](./decisions/ADR-003-no-google-scraping.md)
 - [`decisions/ADR-004-madrid-alcohol-ordinance.md`](./decisions/ADR-004-madrid-alcohol-ordinance.md)
 - [`decisions/ADR-005-osm-opening-hours.md`](./decisions/ADR-005-osm-opening-hours.md)
+- [`decisions/ADR-006-deployment.md`](./decisions/ADR-006-deployment.md) — single-VPS deploy + local pipeline
 
 ## Attribution
 

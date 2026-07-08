@@ -1,0 +1,16 @@
+# Caddy handles TLS automatically for the domain (Let's Encrypt).
+# Same-origin routing: /api/* is stripped and proxied to the API; everything
+# else serves the static web build with SPA fallback.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle_path /api/* {
+		reverse_proxy api:3001
+	}
+
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

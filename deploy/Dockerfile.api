@@ -1,0 +1,18 @@
+# API image. Build context is the repo root (monorepo).
+# Runs under tsx because the workspace deps (@cervezadonde/db|shared) are
+# source-only TS — see ADR-006.
+FROM node:22-slim
+
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /app
+
+# Install with the full workspace so pnpm's frozen lockfile is satisfied.
+COPY . .
+RUN pnpm install --frozen-lockfile
+
+ENV NODE_ENV=production
+ENV API_HOST=0.0.0.0
+ENV API_PORT=3001
+EXPOSE 3001
+
+CMD ["pnpm", "--filter", "@cervezadonde/api", "start"]
