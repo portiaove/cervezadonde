@@ -187,38 +187,59 @@ async function bulkUpsertStores(
   return byType;
 }
 
-/** Flag OSM stores confirmed by an active Censo record; drop the Censo dupes. */
+/**
+ * Merge the Madrid Censo into the OSM canonical stores (ADR-007). For each OSM
+ * store, find its nearest active Censo record within CONFIRM_RADIUS_M (a
+ * GIST-indexed spatial join) and, in one statement:
+ *  - copy the Censo's official fields (address/district/neighbourhood/status)
+ *    onto the OSM store and flag it `oficial`;
+ *  - exclude the now-duplicated Censo row (data preserved, just hidden).
+ * Censo records with no OSM match stay active — they still add places OSM lacks.
+ */
 async function enrichWithCenso(
   sql: Sql,
 ): Promise<{ officialFlagged: number; censoExcluded: number }> {
-  const [flag] = await sql<{ count: number }[]>`
-    WITH flagged AS (
-      UPDATE stores o SET badges = array_append(o.badges, 'oficial'), updated_at = now()
+  const [row] = await sql<{ flagged: number; excluded: number }[]>`
+    WITH matches AS (
+      SELECT
+        o.id AS osm_id, c.id AS censo_id,
+        c.address AS c_address, c.district AS c_district,
+        c.neighbourhood AS c_neighbourhood, c.official_status AS c_official
+      FROM stores o
+      CROSS JOIN LATERAL (
+        SELECT c.id, c.address, c.district, c.neighbourhood, c.official_status
+        FROM stores c
+        WHERE c.source_name = 'madrid_censo' AND c.confidence_level <> 'excluded'
+          AND ST_DWithin(c.geom::geography, o.geom::geography, ${CONFIRM_RADIUS_M})
+        ORDER BY c.geom::geography <-> o.geom::geography
+        LIMIT 1
+      ) c
       WHERE o.source_name = ${OSM_SOURCE_NAME}
-        AND NOT ('oficial' = ANY(o.badges))
-        AND EXISTS (
-          SELECT 1 FROM stores c
-          WHERE c.source_name = 'madrid_censo' AND c.confidence_level <> 'excluded'
-            AND ST_DWithin(c.geom::geography, o.geom::geography, ${CONFIRM_RADIUS_M})
-        )
-      RETURNING 1
-    )
-    SELECT count(*)::int AS count FROM flagged
-  `;
-  const [excl] = await sql<{ count: number }[]>`
-    WITH dropped AS (
+    ),
+    merged AS (
+      UPDATE stores o SET
+        address = COALESCE(NULLIF(m.c_address, ''), NULLIF(o.address, '')),
+        district = COALESCE(o.district, m.c_district),
+        neighbourhood = COALESCE(o.neighbourhood, m.c_neighbourhood),
+        official_status = COALESCE(o.official_status, m.c_official),
+        badges = CASE WHEN 'oficial' = ANY(o.badges) THEN o.badges
+                      ELSE array_append(o.badges, 'oficial') END,
+        updated_at = now()
+      FROM matches m
+      WHERE o.id = m.osm_id
+      RETURNING o.id
+    ),
+    dropped AS (
       UPDATE stores c SET confidence_level = 'excluded', updated_at = now()
-      WHERE c.source_name = 'madrid_censo' AND c.confidence_level <> 'excluded'
-        AND EXISTS (
-          SELECT 1 FROM stores o
-          WHERE o.source_name = ${OSM_SOURCE_NAME}
-            AND ST_DWithin(o.geom::geography, c.geom::geography, ${CONFIRM_RADIUS_M})
-        )
-      RETURNING 1
+      WHERE c.id IN (SELECT censo_id FROM matches)
+        AND c.confidence_level <> 'excluded'
+      RETURNING c.id
     )
-    SELECT count(*)::int AS count FROM dropped
+    SELECT
+      (SELECT count(*)::int FROM merged)  AS flagged,
+      (SELECT count(*)::int FROM dropped) AS excluded
   `;
-  return { officialFlagged: flag?.count ?? 0, censoExcluded: excl?.count ?? 0 };
+  return { officialFlagged: row?.flagged ?? 0, censoExcluded: row?.excluded ?? 0 };
 }
 
 export async function ingestOsmCanonical(opts: {
