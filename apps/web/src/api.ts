@@ -1,4 +1,10 @@
-import type { Intent, MapResponse, NearbyResponse, PlaceType } from '@cervezadonde/shared';
+import type {
+  ClusterResponse,
+  Intent,
+  MapResponse,
+  NearbyResponse,
+  PlaceType,
+} from '@cervezadonde/shared';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -28,22 +34,46 @@ export type Bounds = {
   west: number;
 };
 
+const clampLat = (v: number): number => Math.max(-90, Math.min(90, v));
+const clampLng = (v: number): number => Math.max(-180, Math.min(180, v));
+
 export async function fetchMap(
   bounds: Bounds,
   filters: Filters = {},
-  limit = 1500,
+  limit = 2000,
 ): Promise<MapResponse> {
+  // At wide zoom MapLibre's bounds overflow ±90/±180; clamp so the API (which
+  // validates the range) doesn't 400 and leave the map empty.
   const qs = new URLSearchParams({
-    north: bounds.north.toString(),
-    south: bounds.south.toString(),
-    east: bounds.east.toString(),
-    west: bounds.west.toString(),
+    north: clampLat(bounds.north).toString(),
+    south: clampLat(bounds.south).toString(),
+    east: clampLng(bounds.east).toString(),
+    west: clampLng(bounds.west).toString(),
     limit: limit.toString(),
   });
   applyFilters(qs, filters);
   const res = await fetch(`${API_URL}/stores/map?${qs.toString()}`);
   if (!res.ok) throw new Error(`map failed: ${res.status}`);
   return (await res.json()) as MapResponse;
+}
+
+export async function fetchClusters(
+  bounds: Bounds,
+  cell: number,
+  filters: Filters = {},
+): Promise<ClusterResponse> {
+  const qs = new URLSearchParams({
+    north: clampLat(bounds.north).toString(),
+    south: clampLat(bounds.south).toString(),
+    east: clampLng(bounds.east).toString(),
+    west: clampLng(bounds.west).toString(),
+    cell: cell.toString(),
+  });
+  // open_now can't be aggregated server-side; the rest of the filters apply.
+  applyFilters(qs, { ...filters, open_now: false });
+  const res = await fetch(`${API_URL}/stores/clusters?${qs.toString()}`);
+  if (!res.ok) throw new Error(`clusters failed: ${res.status}`);
+  return (await res.json()) as ClusterResponse;
 }
 
 export async function fetchNearby(

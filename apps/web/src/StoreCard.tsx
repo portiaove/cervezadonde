@@ -3,6 +3,7 @@ import {
   type AnyStore,
   INTENT_COLOR,
   STATE_RING,
+  directionsUrl,
   intentOf,
   statusOf,
   subtitle,
@@ -38,6 +39,7 @@ export function StoreCard({
 
   return (
     <div className="store-card">
+      <div className="sheet-handle" aria-hidden />
       <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar">
         ×
       </button>
@@ -66,6 +68,10 @@ export function StoreCard({
         {store.address ?? 'Dirección no disponible'}
         {store.neighbourhood ? ` · ${store.neighbourhood}` : ''}
       </div>
+
+      <a className="cta-directions" href={directionsUrl(store)} target="_blank" rel="noreferrer">
+        <span aria-hidden>🧭</span> Cómo llegar
+      </a>
     </div>
   );
 }

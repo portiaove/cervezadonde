@@ -65,3 +65,11 @@ export function subtitle(s: AnyStore): string {
   const intentShort = intent === 'barra' ? 'En barra' : intent === 'lata' ? 'En lata' : null;
   return [placeTypeLabel(s), intentShort].filter(Boolean).join(' · ');
 }
+
+/**
+ * Cross-platform "cómo llegar" link. The Google Maps universal URL opens the
+ * native maps app on iOS/Android and the web on desktop.
+ */
+export function directionsUrl(s: { lat: number; lng: number }): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
+}

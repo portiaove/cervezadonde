@@ -1,21 +1,26 @@
-import type { MapStore, NearbyStore, Ordinance } from '@cervezadonde/shared';
+import type { Cluster, MapStore, NearbyStore, Ordinance } from '@cervezadonde/shared';
 import type { StyleSpecification } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, {
   Layer,
+  type MapLayerMouseEvent,
   type MapRef,
   Marker,
   Source,
   type ViewStateChangeEvent,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { FilterBar, Legend, TimeChip, type UiFilters } from './Controls.js';
+import { FilterBar, Legend, MapStatus, TimeChip, type UiFilters } from './Controls.js';
 import { NearestOpenCard } from './NearestOpenCard.js';
 import { StoreCard } from './StoreCard.js';
-import { type Filters, fetchMap, fetchNearby } from './api.js';
+import { type Filters, fetchClusters, fetchMap, fetchNearby } from './api.js';
 import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
 
 const MADRID_CENTER = { lat: 40.4168, lng: -3.7038 };
+
+// At or below this zoom the map shows server-aggregated count bubbles; above
+// it, individual coloured markers (the product's core view).
+const CLUSTER_MAX_ZOOM = 11;
 
 // Dev tile source: OpenStreetMap raster tiles. Free, no API key.
 const MAP_STYLE: StyleSpecification = {
@@ -36,17 +41,21 @@ const MAP_STYLE: StyleSpecification = {
   layers: [{ id: 'osm-tiles', type: 'raster', source: 'osm' }],
 };
 
-const markersToGeoJson = (stores: MapStore[]): GeoJSON.FeatureCollection => ({
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+const fmtCount = (n: number): string =>
+  n >= 1000 ? `${(n / 1000).toFixed(n < 10000 ? 1 : 0)}k` : String(n);
+
+// Bubble diameter (px) grows with the aggregated count.
+const bubbleSize = (n: number): number => (n >= 2000 ? 58 : n >= 500 ? 50 : n >= 50 ? 42 : 34);
+
+const pointsToGeoJson = (stores: MapStore[]): GeoJSON.FeatureCollection => ({
   type: 'FeatureCollection',
   features: stores.map((s) => ({
     type: 'Feature',
     id: s.id,
     geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
-    properties: {
-      id: s.id,
-      intent: intentOf(s),
-      state: statusOf(s),
-    },
+    properties: { id: s.id, intent: intentOf(s), state: statusOf(s) },
   })),
 });
 
@@ -58,7 +67,8 @@ const toApiFilters = (f: UiFilters): Filters => ({
 
 export function App() {
   const mapRef = useRef<MapRef | null>(null);
-  const [stores, setStores] = useState<MapStore[]>([]);
+  const [points, setPoints] = useState<MapStore[]>([]);
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selected, setSelected] = useState<MapStore | null>(null);
   const [filters, setFilters] = useState<UiFilters>({
     openNow: false,
@@ -70,6 +80,7 @@ export function App() {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [nearest, setNearest] = useState<NearbyStore | null>(null);
   const [nearestLoading, setNearestLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
@@ -78,16 +89,35 @@ export function App() {
     const map = mapRef.current;
     if (!map) return;
     const b = map.getBounds();
+    const bounds = {
+      north: b.getNorth(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      west: b.getWest(),
+    };
+    const z = map.getZoom();
+    setLoading(true);
     try {
-      const res = await fetchMap(
-        { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() },
-        toApiFilters(filtersRef.current),
-      );
-      setStores(res.results);
-      setNow(res.now);
-      setOrdinance(res.ordinance);
+      if (z > CLUSTER_MAX_ZOOM) {
+        // Zoomed in: individual coloured markers.
+        const res = await fetchMap(bounds, toApiFilters(filtersRef.current));
+        setPoints(res.results);
+        setClusters([]);
+        setNow(res.now);
+        setOrdinance(res.ordinance);
+      } else {
+        // Wide zoom: server-aggregated count bubbles. Cell ≈ 64px wide.
+        const widthDeg = Math.abs(bounds.east - bounds.west);
+        const widthPx = map.getContainer().clientWidth || 400;
+        const cell = clamp((widthDeg / widthPx) * 64, 0.0005, 20);
+        const res = await fetchClusters(bounds, cell, toApiFilters(filtersRef.current));
+        setClusters(res.clusters);
+        setPoints([]);
+      }
     } catch (err) {
-      console.error('fetchMap failed:', err);
+      console.error('map refresh failed:', err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -144,7 +174,28 @@ export function App() {
     mapRef.current?.flyTo({ center: [s.lng, s.lat], zoom: 16 });
   }, []);
 
-  const data = useMemo(() => markersToGeoJson(stores), [stores]);
+  const onMapClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature) {
+        setSelected(null);
+        return;
+      }
+      const id = feature.properties?.id as string | undefined;
+      const match = id ? points.find((s) => s.id === id) : null;
+      setSelected(match ?? null);
+    },
+    [points],
+  );
+
+  const zoomIntoCluster = useCallback((c: Cluster) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.easeTo({ center: [c.lng, c.lat], zoom: Math.min(map.getZoom() + 3, 15), duration: 500 });
+  }, []);
+
+  const pointsData = useMemo(() => pointsToGeoJson(points), [points]);
+  const empty = !loading && points.length === 0 && clusters.length === 0;
 
   return (
     <div className="app">
@@ -160,17 +211,13 @@ export function App() {
         mapStyle={MAP_STYLE}
         onLoad={onLoad}
         onMoveEnd={onMoveEnd}
-        interactiveLayerIds={['stores']}
-        onClick={(e) => {
-          const feature = e.features?.[0];
-          const id = feature?.properties?.id as string | undefined;
-          const match = id ? stores.find((s) => s.id === id) : null;
-          setSelected(match ?? null);
-        }}
+        interactiveLayerIds={['unclustered-point']}
+        onClick={onMapClick}
       >
-        <Source id="stores" type="geojson" data={data}>
+        {/* Individual coloured markers (zoomed in) — the product's core view. */}
+        <Source id="points" type="geojson" data={pointsData}>
           <Layer
-            id="stores"
+            id="unclustered-point"
             type="circle"
             paint={{
               'circle-radius': ['match', ['get', 'state'], 'open', 7, 5],
@@ -211,6 +258,27 @@ export function App() {
           />
         </Source>
 
+        {/* Server-aggregated count bubbles (wide zoom) as DOM markers — no
+            external glyph dependency, and clearer than map-drawn text. */}
+        {clusters.map((c) => {
+          const size = bubbleSize(c.count);
+          return (
+            <Marker key={`${c.lng},${c.lat}`} longitude={c.lng} latitude={c.lat} anchor="center">
+              <button
+                type="button"
+                className="cluster-bubble"
+                style={{ width: size, height: size }}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  zoomIntoCluster(c);
+                }}
+              >
+                {fmtCount(c.count)}
+              </button>
+            </Marker>
+          );
+        })}
+
         {userLoc && (
           <Marker longitude={userLoc.lng} latitude={userLoc.lat} anchor="center">
             <span className="user-dot" title="Tu ubicación" />
@@ -230,8 +298,10 @@ export function App() {
       </div>
 
       <button type="button" className="locate-btn" onClick={locate}>
-        Cerca de mí
+        <span aria-hidden>📍</span> Cerca de mí
       </button>
+
+      <MapStatus loading={loading} empty={empty} />
 
       <Legend />
 
