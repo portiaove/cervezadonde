@@ -126,6 +126,7 @@ Each source's ingest only soft-deactivates its own rows.
 
 ## Project docs
 
+- [`docs/00-overview.md`](./docs/00-overview.md) — **architecture overview (start here, with diagrams)**
 - [`BLUEPRINT.md`](./BLUEPRINT.md) — product blueprint
 - [`docs/01-product.md`](./docs/01-product.md) — product definition
 - [`docs/02-data-strategy.md`](./docs/02-data-strategy.md) — Censo + OSM
