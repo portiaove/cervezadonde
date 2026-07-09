@@ -9,11 +9,11 @@ cd "$(dirname "$0")/.."
 DUMP="${1:-serving.dump}"
 COMPOSE="docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod"
 
-echo "Truncating serving tables…"
+echo "Truncating serving tables..."
 $COMPOSE exec -T postgres psql -U cervezadonde -d cervezadonde \
   -c 'TRUNCATE store_activities, stores RESTART IDENTITY CASCADE;'
 
-echo "Restoring $DUMP…"
+echo "Restoring $DUMP..."
 $COMPOSE exec -T postgres pg_restore --data-only --disable-triggers --no-owner \
   -U cervezadonde -d cervezadonde < "$DUMP"
 

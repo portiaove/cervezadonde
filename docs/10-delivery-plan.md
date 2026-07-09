@@ -3,7 +3,7 @@
 ## Phase 0 — Technical spike (done)
 
 Repo scaffolding, PostGIS up, fixture ingest, /stores/nearby, map UI.
-First milestone of pre-pivot work — kept intact, sample fixture lives under
+Kept intact; the sample fixture lives under
 `source_name='madrid_sample_fixture'`.
 
 ## Phase 1 — Beer-MVP foundation (done)
@@ -19,7 +19,7 @@ nearest-open card. 102 Vitest cases green.
 
 Deliverables:
 
-- **M6a — Domain pivot** (this batch of doc rewrites + ADRs 004/005).
+- **M6a — Product docs + ADRs 004/005**.
 - **M6b — Schema migration #5**: add `place_type`, `sells_takeaway_beer`,
   `sells_onsite_beer`, `opening_hours_osm`, `last_seen_osm_at`, plus
   `store_osm_enrichment` table.

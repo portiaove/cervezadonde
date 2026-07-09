@@ -159,8 +159,7 @@ different free tile provider in `apps/web/src/App.tsx`.
 
 ## Source-name conventions
 
-- `madrid_sample_fixture` — bundled fixture (post-pivot: beer-source
-  fixture, 25–40 rows).
+- `madrid_sample_fixture` — bundled beer-source fixture (25–40 rows).
 - `madrid_censo` — real Censo data.
 - `osm_only` — OSM-only places without a Censo match (v1.1+).
 

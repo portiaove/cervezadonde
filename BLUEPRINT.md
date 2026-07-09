@@ -1,4 +1,4 @@
-# MiniMarket Madrid — Blueprint (beer-now pivot)
+# cervezadonde.es — Blueprint
 
 ## 1. Executive summary
 
@@ -158,12 +158,12 @@ Phase 0 (done):
 1. Monorepo + Docker Compose + PostGIS up.
 2. Sample fixture ingest + nearest-store API + map UI.
 
-Phase 1 (done before pivot):
+Phase 1 (foundation):
 3. Real Censo ingest with deterministic scorer v1.
 4. Chain exclusion table.
 5. Vitest unit tests.
 
-Phase 1 (post-pivot, in flight — see `docs/10-delivery-plan.md`):
+Phase 1 (beer product — done; see `docs/10-delivery-plan.md`):
 - M6a: doc rewrite + ADRs 004/005 (done).
 - M6b: schema migration #5 (place_type, hours, OSM enrichment).
 - M6c: scorer v2-beer.

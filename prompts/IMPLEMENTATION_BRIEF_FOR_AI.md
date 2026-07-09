@@ -44,13 +44,12 @@ now, with the Madrid alcohol-sale ordinance (ADR-004) honoured by the
 - Chains are surfaced, not excluded. `is_chain` is informational.
 - Keep the architecture small. No Kafka, no microservices, no ML.
 
-## Current state (as of this brief)
+## Current state
 
-- Repo scaffolding, PostGIS, sample fixture, real Censo ingest, scoring
-  v1, /stores/nearby v1, MapLibre map: **done** (pre-pivot product framing
-  still in code).
-- Doc pivot + ADRs 004/005: **done**.
-- Code pivot (M6b–M6h): **next**. See `docs/10-delivery-plan.md`.
+The product (M6a–M6h) is **done and deployed** at cervezadonde.es: Censo + OSM
+ingestion, the scorer, the open-now evaluator honouring the 22:00 ordinance,
+`/stores/map` + `/stores/nearby`, and the web UI. See
+`docs/10-delivery-plan.md` for what's next (hours coverage, Spain-wide).
 
 ## Next concrete tasks (M6, in order)
 

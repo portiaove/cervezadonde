@@ -54,7 +54,7 @@ export const TARGET_EPIGRAPH_CODES: ReadonlySet<string> = new Set([
 export const isTargetEpigraph = (code: string): boolean =>
   TARGET_EPIGRAPH_CODES.has(code);
 
-// --- Beer pivot (M6+) -------------------------------------------------------
+// --- Beer target set (M6+) --------------------------------------------------
 // Bars / cafeterías serve beer on-site. These join the target set in v2.
 // CNAE-09 division 561 (servicios de comidas y bebidas).
 
@@ -72,7 +72,7 @@ export const BAR_EPIGRAPH_CODES: ReadonlySet<string> = new Set(
 export const isBarEpigraph = (code: string): boolean =>
   BAR_EPIGRAPH_CODES.has(code);
 
-/** Expanded target set used by the beer-pivot ingest (M6d). */
+/** Expanded target set used by the beer ingest (M6d). */
 export const TARGET_EPIGRAPH_CODES_V2: ReadonlySet<string> = new Set([
   ...Object.keys(STRONG_TARGET_EPIGRAPHS),
   ...Object.keys(ADJACENT_TARGET_EPIGRAPHS),

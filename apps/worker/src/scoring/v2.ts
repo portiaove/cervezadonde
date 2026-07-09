@@ -1,4 +1,4 @@
-// Beer-pivot scorer. See docs/07-scoring-classification.md.
+// Beer scorer. See docs/07-scoring-classification.md.
 //
 // Pure function: given Censo + (optional) OSM tags + chain list + name,
 // derive place_type, sells_*_beer booleans, confidence score and badges.

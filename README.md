@@ -1,75 +1,74 @@
-# MiniMarket Madrid (beer-now pivot)
+# cervezadonde.es
 
-Madrid-only mobile-first web map answering one question:
-**"¿Dónde puedo conseguir una cerveza ahora mismo, cerca de mí?"**
+Mobile-first web map that answers one question, fast:
+**"¿Dónde está la cerveza abierta más cercana, ahora mismo?"**
 
-Built on the Ayuntamiento de Madrid Censo de Locales + OpenStreetMap +
-PostGIS + a deterministic scoring model. The product respects Madrid's
-municipal ordinance forbidding takeaway alcohol between 22:00 and 09:00
+Every place carries an **intent** — **barra** (para tomar: bar, cafetería,
+restaurante) or **lata** (para llevar: súper, alimentación, bodega, 24h) —
+and the app respects opening hours and Madrid's municipal ordinance forbidding
+takeaway alcohol between 22:00 and 09:00
 ([ADR-004](./decisions/ADR-004-madrid-alcohol-ordinance.md)).
 
-No Google Maps scraping. See [`BLUEPRINT.md`](./BLUEPRINT.md), [`docs/`](./docs)
-and [`decisions/`](./decisions/) for the full design. Package name remains
-`cervezadonde` until the public name is chosen in Phase 3.
+Built on the Ayuntamiento de Madrid Censo de Locales + OpenStreetMap + PostGIS
++ a deterministic scoring model. **No Google Maps** ([ADR-003](./decisions/ADR-003-no-google-scraping.md)).
+
+**Live:** deployed at [cervezadonde.es](https://cervezadonde.es) on a single
+VPS (PostGIS + API + Caddy). The data pipeline runs locally and ships finished
+serving tables to production — see [ADR-006](./decisions/ADR-006-deployment.md)
+and [`docs/13-deploy.md`](./docs/13-deploy.md).
+
+Madrid today; Spain-wide is the next scope step.
 
 ## Status
 
-| Component | Status |
+**The app is built and live end-to-end:** ~16k Madrid stores classified by
+`place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
+`/stores/map` + `/stores/nearby` with filters, the OSM hours-enrichment worker,
+and the web UI (time chip, lata/barra legend, intent filters, nearest-open
+card). 102 Vitest cases green.
+
+| Area | State |
 |---|---|
-| Repo scaffolding + Docker Compose + git (`cervezadonde` repo) | done |
-| PostGIS schema + migrations v1–v6 | done |
-| `packages/shared` typed contract (Zod) | done |
-| `chain_patterns` table | done — re-purposed as informational |
-| Real Madrid Censo ingest (bars + shops, scorer v2-beer) | done — 16k stores |
-| Vitest unit tests (scorer v1/v2, openNow, OSM matcher) | done — 102 tests |
-| API `/health` + `/stores/nearby` + `/stores/map` (v2 filters) | done |
-| **M6a — Pivot doc rewrite + ADRs 004/005** | done |
-| **M6b — Schema migration #5 (place_type, hours, OSM enrichment)** | done |
-| **M6c — Scorer v2-beer** | done |
-| **M6d — Broaden Censo epigraph set (bars + shops)** | done |
-| **M6e — Open-now evaluator + ADR-004 enforcement** | done |
-| **M6f — `/stores/nearby` + `/stores/map` v2 (place_type, intent, open_now, at_time)** | done |
-| **M6g — OSM enrichment worker (Overpass, batched match)** | done — 1.4k stores enriched |
-| **M6h — Web UI v2 (time chip, intent legend, filters, nearest-open card)** | done |
-| **Hours coverage** | ⚠️ ~9% (OSM only) — biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
-| Store detail page | Phase 2 |
-| User feedback endpoint + moderation | Phase 2 |
-| Deployment + scheduled crons | Phase 3 |
+| Data model, ingestion, scoring, API, web UI | done |
+| Deployment (VPS) + one-command data refresh + CI deploy | done |
+| **Opening-hours coverage** | ⚠️ ~9% (OSM only) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
+| Richer hours (website `schema.org` crawl, defaults, feedback) | next |
+| Spain-wide coverage (OSM as the national POI base) | next |
+| Store detail page, user feedback + moderation | later |
 
 ## Stack
 
 | Layer | Tech |
 |---|---|
 | Web | Vite + React 18 + MapLibre GL JS |
-| API | Node 20 + TypeScript + Fastify + Zod |
-| Worker | Node 20 + TypeScript CLI (commander, csv-parse) |
-| DB | PostgreSQL 16 + PostGIS 3.4 (Docker `postgis/postgis:16-3.4`) |
+| API | Node 22 + TypeScript + Fastify + Zod |
+| Worker | Node 22 + TypeScript CLI (commander, csv-parse) |
+| DB | PostgreSQL 16 + PostGIS 3.4 (`postgis/postgis:16-3.4`) |
 | Monorepo | pnpm workspaces |
-| Lint/format | Biome |
-| Tests | Vitest |
+| Proxy / TLS | Caddy (auto-HTTPS) |
+| Lint/format | Biome · Tests: Vitest |
 
 ## Layout
 
 ```
-apps/api          Fastify HTTP server (/health, /stores/nearby)
+apps/api          Fastify HTTP server (/health, /stores/nearby, /stores/map)
 apps/web          Vite + React + MapLibre map UI
-apps/worker       Ingestion CLI (ingest:sample, ingest:madrid, diagnose:madrid)
+apps/worker       Ingestion CLI (ingest:madrid, ingest:osm, ingest:sample, diagnose:madrid)
 packages/shared   Shared TS types & Zod schemas
 packages/db       node-pg-migrate migrations + postgres-js client
-docs/             Product, architecture, scoring, governance, runbook
-decisions/        ADRs (001-stack, 002-data-sources, 003-no-google,
-                  004-alcohol-ordinance, 005-osm-opening-hours)
+deploy/           Production stack (Dockerfile.api, docker-compose.prod.yml, Caddyfile)
+scripts/          Data push (push-data.ps1) + dump helper
+docs/             Product, architecture, scoring, governance, runbook, deploy
+decisions/        ADRs (001–006)
 ```
 
 ## Prerequisites
 
-- Node.js >= 20.10
-- pnpm >= 9 — install with `corepack enable; corepack prepare pnpm@9.12.0 --activate`
+- Node.js 22 (>= 20.10)
+- pnpm >= 9 — `corepack enable; corepack prepare pnpm@9.12.0 --activate`
 - Docker Desktop running
 
-## Quickstart
-
-### 1. One-time setup
+## Quickstart (local dev)
 
 ```powershell
 pnpm install
@@ -78,7 +77,7 @@ pnpm db:up
 pnpm db:migrate
 ```
 
-### 2. See it work immediately (fixture, no network)
+See it work with the bundled fixture (no network):
 
 ```powershell
 pnpm worker:ingest:sample
@@ -87,18 +86,13 @@ pnpm web:dev               # terminal B — Vite on :5173
 # open http://localhost:5173
 ```
 
-Sample stores live under `source_name='madrid_sample_fixture'`. The
-fixture rows are pre-pivot alimentaciones; M6 will swap them for a small
-beer-source set.
-
-### 3. Load the real Madrid Censo
+Load real Madrid data:
 
 ```powershell
-pnpm worker:ingest:madrid --limit 200    # first time
-pnpm worker:ingest:madrid                # full ingest (~2–5 min cache-hit)
+pnpm worker:ingest:madrid --limit 200    # first time, quick
+pnpm worker:ingest:madrid                # full Censo (bars + shops)
+pnpm worker:ingest:osm --fresh           # OSM opening-hours enrichment
 ```
-
-After M6d, the same command will also include bars (epigraph 561xxx).
 
 ## Command reference
 
@@ -107,65 +101,45 @@ After M6d, the same command will also include bars (epigraph 561xxx).
 | `pnpm db:up` / `pnpm db:down` | Start / stop PostGIS container |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm worker:ingest:sample` | Load fixture (no network) |
-| `pnpm worker:diagnose:madrid` | Download + report file shape, no DB writes |
 | `pnpm worker:ingest:madrid [--limit N] [--fresh]` | Censo pipeline |
-| `pnpm worker:ingest:osm` (M6g) | OSM enrichment pipeline |
-| `pnpm api:dev` | Run API in watch mode on :3001 |
-| `pnpm web:dev` | Run web app on :5173 |
-| `pnpm test` | Run Vitest across all workspaces |
-| `pnpm lint` / `pnpm format` | Biome |
+| `pnpm worker:ingest:osm [--fresh] [-l N]` | OSM opening-hours enrichment |
+| `pnpm worker:diagnose:madrid` | Report source-file shape, no DB writes |
+| `pnpm api:dev` / `pnpm web:dev` | Run API (:3001) / web (:5173) |
+| `pnpm test` | Vitest across all workspaces |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format` | tsc / Biome |
+| `.\scripts\push-data.ps1` | Dump serving tables and refresh production |
 
-## Pivot at a glance
+## Deploy
 
-The project pivoted from "find the nearest neighbourhood convenience shop"
-to "find the nearest beer right now". What changed and what stayed:
-
-- **Stays:** repo, PostGIS, Censo as canonical, no Google scraping,
-  provenance layering, Vitest discipline, deployment shape.
-- **Changes:** bars are first-class; chains are surfaced not excluded;
-  OSM `opening_hours` is a Phase 1 must; the API computes "open now"
-  honouring the 22:00 ordinance; UI gains time chip and intent filters.
-
-See [`docs/01-product.md`](./docs/01-product.md) for the rewritten product
-definition and [`docs/10-delivery-plan.md`](./docs/10-delivery-plan.md)
-for the M6 plan.
+Code deploys from GitHub Actions on every push to `main`; data is pushed
+PC → VPS with `.\scripts\push-data.ps1`. Full walkthrough (provisioning, DNS,
+first deploy, weekly refresh) in [`docs/13-deploy.md`](./docs/13-deploy.md).
 
 ## Source-name conventions
 
+- `madrid_censo` — real Censo data (canonical).
 - `madrid_sample_fixture` — bundled fixture.
-- `madrid_censo` — real Censo data.
-- `osm_only` (M6g+) — OSM-only places without a Censo match.
+- `osm_only` — OSM-only places without a Censo match (parked for review).
 
 Each source's ingest only soft-deactivates its own rows.
 
-## Operations
-
-See [`docs/11-runbook.md`](./docs/11-runbook.md) for daily refresh,
-verification queries, troubleshooting, scorer rerun pattern, and OSM
-ingest details.
-
 ## Project docs
 
-- [`BLUEPRINT.md`](./BLUEPRINT.md) — original blueprint, updated for pivot
-- [`docs/01-product.md`](./docs/01-product.md) — product definition (beer-now)
+- [`BLUEPRINT.md`](./BLUEPRINT.md) — product blueprint
+- [`docs/01-product.md`](./docs/01-product.md) — product definition
 - [`docs/02-data-strategy.md`](./docs/02-data-strategy.md) — Censo + OSM
-- [`docs/03-architecture.md`](./docs/03-architecture.md) — high-level architecture
+- [`docs/03-architecture.md`](./docs/03-architecture.md) — architecture
 - [`docs/04-domain-model.md`](./docs/04-domain-model.md) — entities, place_type, hours
-- [`docs/05-api-contract.md`](./docs/05-api-contract.md) — `/stores/nearby` v2 shape
+- [`docs/05-api-contract.md`](./docs/05-api-contract.md) — API shapes
 - [`docs/06-ingestion-pipeline.md`](./docs/06-ingestion-pipeline.md) — Censo + OSM
-- [`docs/07-scoring-classification.md`](./docs/07-scoring-classification.md) — scorer v2-beer
+- [`docs/07-scoring-classification.md`](./docs/07-scoring-classification.md) — scorer
 - [`docs/08-ux-map-legend.md`](./docs/08-ux-map-legend.md) — UI, time chip, intent filters
 - [`docs/09-legal-data-governance.md`](./docs/09-legal-data-governance.md) — Madrid + OSM + ordinance
-- [`docs/10-delivery-plan.md`](./docs/10-delivery-plan.md) — M6 plan
+- [`docs/10-delivery-plan.md`](./docs/10-delivery-plan.md) — delivery plan
 - [`docs/11-runbook.md`](./docs/11-runbook.md) — operations runbook
-- [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours (the open problem)
+- [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours
 - [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
-- [`decisions/ADR-001-stack.md`](./decisions/ADR-001-stack.md)
-- [`decisions/ADR-002-data-sources.md`](./decisions/ADR-002-data-sources.md)
-- [`decisions/ADR-003-no-google-scraping.md`](./decisions/ADR-003-no-google-scraping.md)
-- [`decisions/ADR-004-madrid-alcohol-ordinance.md`](./decisions/ADR-004-madrid-alcohol-ordinance.md)
-- [`decisions/ADR-005-osm-opening-hours.md`](./decisions/ADR-005-osm-opening-hours.md)
-- [`decisions/ADR-006-deployment.md`](./decisions/ADR-006-deployment.md) — single-VPS deploy + local pipeline
+- [`decisions/`](./decisions/) — ADR-001…006
 
 ## Attribution
 

@@ -4,7 +4,7 @@ export const ConfidenceLevel = z.enum(['high', 'medium', 'low', 'excluded']);
 export type ConfidenceLevel = z.infer<typeof ConfidenceLevel>;
 
 export const Badge = z.enum([
-  // legacy / pre-pivot
+  // legacy
   'alimentacion',
   'conveniencia',
   '24h',
@@ -14,7 +14,7 @@ export const Badge = z.enum([
   'verificado',
   'horario_no_confirmado',
   'posible_cerrado',
-  // post-pivot (M6+): see docs/04-domain-model.md
+  // beer product (M6+): see docs/04-domain-model.md
   'bar',
   'supermercado',
   'tienda_24h',
