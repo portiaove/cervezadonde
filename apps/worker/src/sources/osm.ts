@@ -7,7 +7,7 @@
 // Everything here is pure/config: the Overpass query, the tag filters, and
 // the name-similarity used for matching. The pipeline lives in ingest-osm.ts.
 
-export const OSM_SOURCE_NAME = 'osm_madrid';
+export const OSM_SOURCE_NAME = 'osm';
 
 /** amenity values we treat as on-site (barra) beer candidates. */
 export const OSM_AMENITY_VALUES = ['bar', 'pub', 'cafe', 'restaurant', 'fast_food'] as const;
