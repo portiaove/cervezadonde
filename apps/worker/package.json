@@ -12,6 +12,7 @@
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:osm": "tsx src/cli.ts ingest:osm",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
+    "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",
     "diagnose:madrid": "tsx src/cli.ts diagnose:madrid"
   },
   "dependencies": {

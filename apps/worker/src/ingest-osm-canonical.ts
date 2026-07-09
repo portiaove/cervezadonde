@@ -133,7 +133,7 @@ async function bulkUpsertStores(
     for (const p of part) {
       const c = classifyOsmPlace(p);
       byType[c.placeType] = (byType[c.placeType] ?? 0) + 1;
-      slids.push(`${p.osmType}/${p.osmId}`);
+      slids.push(p.sourceLocalId ?? `${p.osmType}/${p.osmId}`);
       names.push(p.name ?? '');
       nnames.push(normalizeName(p.name));
       addrs.push(p.address);
@@ -242,6 +242,48 @@ async function enrichWithCenso(
   return { officialFlagged: row?.flagged ?? 0, censoExcluded: row?.excluded ?? 0 };
 }
 
+/**
+ * Persist already-parsed OSM places as canonical stores + run the Censo merge,
+ * wrapped in an import_run. Shared by the Overpass (region) and Geofabrik/pbf
+ * (national) ingest paths.
+ */
+export async function persistOsmCanonical(
+  sql: Sql,
+  places: OsmPlace[],
+  opts: { sourceUrl: string; fileHash: string; rowCount: number; log: (m: string) => void },
+): Promise<{
+  importRunId: number;
+  byType: Record<string, number>;
+  officialFlagged: number;
+  censoExcluded: number;
+}> {
+  const [run] = await sql<{ id: number }[]>`
+    INSERT INTO import_runs (source_name, source_url, status, file_hash)
+    VALUES (${OSM_SOURCE_NAME}, ${opts.sourceUrl}, 'running', ${opts.fileHash})
+    RETURNING id
+  `;
+  if (!run) throw new Error('failed to create import_run');
+  const importRunId = run.id;
+  try {
+    const byType = await bulkUpsertStores(sql, places, importRunId);
+    opts.log(`upserted ${places.length} OSM stores`);
+    const { officialFlagged, censoExcluded } = await enrichWithCenso(sql);
+    opts.log(
+      `Censo enrichment: ${officialFlagged} flagged 'oficial', ${censoExcluded} Censo dupes excluded`,
+    );
+    await sql`
+      UPDATE import_runs SET status = 'succeeded', finished_at = now(),
+        row_count = ${opts.rowCount}, inserted_count = ${places.length}, updated_count = ${officialFlagged}
+      WHERE id = ${importRunId}
+    `;
+    return { importRunId, byType, officialFlagged, censoExcluded };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await sql`UPDATE import_runs SET status='failed', finished_at=now(), error_message=${message} WHERE id=${importRunId}`;
+    throw err;
+  }
+}
+
 export async function ingestOsmCanonical(opts: {
   region?: string;
   fresh?: boolean;
@@ -269,34 +311,11 @@ export async function ingestOsmCanonical(opts: {
   const withHours = places.filter((p) => p.openingHours).length;
   log(`parsed ${places.length} places (${withHours} with hours) from ${elementsFetched} elements`);
 
-  const [run] = await sql<{ id: number }[]>`
-    INSERT INTO import_runs (source_name, source_url, status, file_hash)
-    VALUES (${OSM_SOURCE_NAME}, ${cfg.url}, 'running', ${dl.hash})
-    RETURNING id
-  `;
-  if (!run) throw new Error('failed to create import_run');
-  const importRunId = run.id;
-
-  let byType: Record<string, number> = {};
-  let officialFlagged = 0;
-  let censoExcluded = 0;
-  try {
-    byType = await bulkUpsertStores(sql, places, importRunId);
-    log(`upserted ${places.length} OSM stores`);
-    ({ officialFlagged, censoExcluded } = await enrichWithCenso(sql));
-    log(
-      `Censo enrichment: ${officialFlagged} flagged 'oficial', ${censoExcluded} Censo dupes excluded`,
-    );
-    await sql`
-      UPDATE import_runs SET status = 'succeeded', finished_at = now(),
-        row_count = ${elementsFetched}, inserted_count = ${places.length}, updated_count = ${officialFlagged}
-      WHERE id = ${importRunId}
-    `;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await sql`UPDATE import_runs SET status='failed', finished_at=now(), error_message=${message} WHERE id=${importRunId}`;
-    throw err;
-  }
+  const { importRunId, byType, officialFlagged, censoExcluded } = await persistOsmCanonical(
+    sql,
+    places,
+    { sourceUrl: cfg.url, fileHash: dl.hash, rowCount: elementsFetched, log },
+  );
 
   return {
     importRunId,

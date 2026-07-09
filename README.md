@@ -102,7 +102,8 @@ pnpm worker:ingest:osm --fresh           # OSM opening-hours enrichment
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm worker:ingest:sample` | Load fixture (no network) |
 | `pnpm worker:ingest:madrid [--limit N] [--fresh]` | Censo pipeline |
-| `pnpm worker:ingest:osm [--fresh] [-l N]` | OSM opening-hours enrichment |
+| `pnpm worker:ingest:osm [--fresh] [-l N]` | OSM opening-hours enrichment (onto Censo stores) |
+| `pnpm worker:ingest:osm:pbf [-r region] [--fresh]` | OSM-canonical ingest from a Geofabrik pbf via osmium (national path, ADR-007) |
 | `pnpm worker:diagnose:madrid` | Report source-file shape, no DB writes |
 | `pnpm api:dev` / `pnpm web:dev` | Run API (:3001) / web (:5173) |
 | `pnpm test` | Vitest across all workspaces |

@@ -87,6 +87,8 @@ export type OverpassResponse = {
 export type OsmPlace = {
   osmId: number;
   osmType: 'node' | 'way' | 'relation';
+  /** Explicit source_local_id (e.g. osmium 'n123'); falls back to `${osmType}/${osmId}`. */
+  sourceLocalId?: string;
   lat: number;
   lon: number;
   name: string | null;

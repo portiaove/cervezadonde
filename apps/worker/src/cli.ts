@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
 import { ingestMadrid } from './ingest-madrid.js';
 import { ingestOsmCanonical } from './ingest-osm-canonical.js';
+import { ingestOsmPbf } from './ingest-osm-pbf.js';
 import { ingestOsm } from './ingest-osm.js';
 import { ingestSample } from './ingest-sample.js';
 
@@ -89,6 +90,27 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:osm:region failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('ingest:osm:pbf')
+  .description('OSM-canonical ingest from a Geofabrik pbf via osmium (ADR-007, national).')
+  .option('-r, --region <name>', 'region key (comunidad-madrid, spain)', 'comunidad-madrid')
+  .option('--fresh', 're-download the pbf extract', false)
+  .action(async (opts: { region?: string; fresh?: boolean }) => {
+    try {
+      const summary = await ingestOsmPbf({
+        region: opts.region,
+        fresh: opts.fresh,
+        log: (m) => console.error(m),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+    } catch (err) {
+      console.error('ingest:osm:pbf failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();

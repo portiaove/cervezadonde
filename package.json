@@ -22,6 +22,7 @@
     "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:madrid",
     "worker:ingest:osm": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm",
     "worker:ingest:osm:region": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:region",
+    "worker:ingest:osm:pbf": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:pbf",
     "worker:diagnose:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker diagnose:madrid",
     "api:dev": "dotenv -e .env -- pnpm --filter @cervezadonde/api dev",
     "web:dev": "pnpm --filter @cervezadonde/web dev"
