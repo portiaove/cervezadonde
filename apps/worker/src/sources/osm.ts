@@ -212,3 +212,58 @@ export function selectMatch(place: OsmPlace, candidates: StoreCandidate[]): Matc
     score: bestScore,
   };
 }
+
+// --- classification (OSM tags -> our model) --------------------------------
+
+/** place_type values, mirrored from the shared PlaceType enum. */
+export type OsmPlaceType =
+  | 'bar'
+  | 'supermercado'
+  | 'alimentacion'
+  | 'bodega'
+  | 'tienda_24h'
+  | 'otro';
+
+export type OsmClassification = {
+  placeType: OsmPlaceType;
+  sellsOnsiteBeer: boolean;
+  sellsTakeawayBeer: boolean;
+};
+
+const BAR_AMENITIES: ReadonlySet<string> = new Set([
+  'bar',
+  'pub',
+  'cafe',
+  'restaurant',
+  'fast_food',
+]);
+
+const is24_7 = (hours: string | null): boolean => !!hours && /24\/7/.test(hours);
+
+/**
+ * Classify an OSM place into a canonical store (ADR-007). Bars/cafés/
+ * restaurants consume on-site (barra); shops are takeaway (lata). Conservative:
+ * anything we don't recognise is 'otro' with no beer flags.
+ */
+export function classifyOsmPlace(place: OsmPlace): OsmClassification {
+  if (place.amenityTag && BAR_AMENITIES.has(place.amenityTag)) {
+    return { placeType: 'bar', sellsOnsiteBeer: true, sellsTakeawayBeer: false };
+  }
+  switch (place.shopTag) {
+    case 'supermarket':
+      return { placeType: 'supermercado', sellsOnsiteBeer: false, sellsTakeawayBeer: true };
+    case 'alcohol':
+      return { placeType: 'bodega', sellsOnsiteBeer: false, sellsTakeawayBeer: true };
+    case 'convenience':
+      return {
+        placeType: is24_7(place.openingHours) ? 'tienda_24h' : 'alimentacion',
+        sellsOnsiteBeer: false,
+        sellsTakeawayBeer: true,
+      };
+    case 'general':
+    case 'kiosk':
+      return { placeType: 'alimentacion', sellsOnsiteBeer: false, sellsTakeawayBeer: true };
+    default:
+      return { placeType: 'otro', sellsOnsiteBeer: false, sellsTakeawayBeer: false };
+  }
+}

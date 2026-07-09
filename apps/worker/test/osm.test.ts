@@ -3,12 +3,16 @@ import {
   type OverpassResponse,
   type StoreCandidate,
   buildOverpassQuery,
+  classifyOsmPlace,
   getOverpassConfig,
   nameSimilarity,
   normalizeName,
   parseOverpass,
   selectMatch,
 } from '../src/sources/osm.js';
+
+const place = (tags: Record<string, string>) =>
+  parseOverpass({ elements: [{ type: 'node', id: 1, lat: 40.4, lon: -3.7, tags }] })[0];
 
 describe('normalizeName', () => {
   it('strips diacritics, punctuation and casing', () => {
@@ -152,5 +156,36 @@ describe('getOverpassConfig + buildOverpassQuery', () => {
     process.env.OSM_OVERPASS_URL = 'https://overpass.example/api';
     process.env.OSM_BBOX = '40.52,-3.55,40.31,-3.84';
     expect(() => getOverpassConfig()).toThrow(/valid box/);
+  });
+});
+
+describe('classifyOsmPlace', () => {
+  it('bars/cafés/restaurants are barra (on-site)', () => {
+    for (const amenity of ['bar', 'pub', 'cafe', 'restaurant', 'fast_food']) {
+      const c = classifyOsmPlace(place({ amenity }));
+      expect(c.placeType).toBe('bar');
+      expect(c.sellsOnsiteBeer).toBe(true);
+      expect(c.sellsTakeawayBeer).toBe(false);
+    }
+  });
+
+  it('shops are lata (takeaway) with the right place_type', () => {
+    expect(classifyOsmPlace(place({ shop: 'supermarket' })).placeType).toBe('supermercado');
+    expect(classifyOsmPlace(place({ shop: 'alcohol' })).placeType).toBe('bodega');
+    expect(classifyOsmPlace(place({ shop: 'convenience' })).placeType).toBe('alimentacion');
+    expect(classifyOsmPlace(place({ shop: 'kiosk' })).placeType).toBe('alimentacion');
+    const sup = classifyOsmPlace(place({ shop: 'supermarket' }));
+    expect(sup.sellsTakeawayBeer).toBe(true);
+    expect(sup.sellsOnsiteBeer).toBe(false);
+  });
+
+  it('a 24/7 convenience store becomes tienda_24h', () => {
+    expect(classifyOsmPlace(place({ shop: 'convenience', opening_hours: '24/7' })).placeType).toBe(
+      'tienda_24h',
+    );
+  });
+
+  it('a bar amenity wins over a shop tag on the same element', () => {
+    expect(classifyOsmPlace(place({ amenity: 'bar', shop: 'convenience' })).placeType).toBe('bar');
   });
 });

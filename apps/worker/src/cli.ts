@@ -2,6 +2,7 @@ import { closeSql } from '@cervezadonde/db';
 import { Command } from 'commander';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
 import { ingestMadrid } from './ingest-madrid.js';
+import { ingestOsmCanonical } from './ingest-osm-canonical.js';
 import { ingestOsm } from './ingest-osm.js';
 import { ingestSample } from './ingest-sample.js';
 
@@ -65,6 +66,29 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:osm failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('ingest:osm:region')
+  .description('OSM-canonical store ingest for a region (ADR-007).')
+  .option('-r, --region <name>', 'region key', 'comunidad-madrid')
+  .option('--fresh', "re-query Overpass even if today's cache exists", false)
+  .option('-l, --limit <n>', 'cap parsed places (for first runs)', (v) => Number.parseInt(v, 10))
+  .action(async (opts: { region?: string; fresh?: boolean; limit?: number }) => {
+    try {
+      const summary = await ingestOsmCanonical({
+        region: opts.region,
+        fresh: opts.fresh,
+        limit: opts.limit,
+        log: (m) => console.error(m),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+    } catch (err) {
+      console.error('ingest:osm:region failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();

@@ -23,6 +23,8 @@ export const Badge = z.enum([
   'vende_cerveza_para_llevar',
   'vende_cerveza_in_situ',
   'no_puede_vender_ahora',
+  // national (ADR-007): OSM store confirmed by an official municipal censo
+  'oficial',
 ]);
 export type Badge = z.infer<typeof Badge>;
 
