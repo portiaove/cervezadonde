@@ -33,23 +33,19 @@ body,
   overflow: hidden;
 }
 
-/* Buttons/links get comfortable tap targets and no tap-highlight flash. */
 button,
 a {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
-/* --- top-left stack: time chip + filters --- */
+/* --- top: time/ordinance chip (the only floating element up there) --- */
 .top-left {
   position: absolute;
   z-index: 6;
   top: calc(12px + var(--safe-top));
   left: 12px;
-  right: 128px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  right: 56px; /* leave room for the map's compact attribution ⓘ */
   pointer-events: none;
 }
 .top-left > * {
@@ -60,7 +56,6 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  align-self: flex-start;
   background: var(--panel);
   border-radius: 999px;
   padding: 6px 12px;
@@ -82,71 +77,11 @@ a {
   color: #dc2626;
 }
 
-/* Filters scroll horizontally on narrow screens to save vertical map space. */
-.filter-bar {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, #000 92%, transparent);
-}
-.filter-bar::-webkit-scrollbar {
-  display: none;
-}
-.chip {
-  flex: 0 0 auto;
-  background: var(--panel);
-  color: #334155;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 999px;
-  padding: 9px 14px;
-  min-height: 38px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  transition: transform 0.06s ease;
-}
-.chip:active {
-  transform: scale(0.95);
-}
-.chip--on {
-  background: var(--text);
-  color: #fff;
-  border-color: var(--text);
-}
-
-.locate-btn {
-  position: absolute;
-  z-index: 5;
-  top: calc(12px + var(--safe-top));
-  right: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel);
-  color: var(--text);
-  border: none;
-  border-radius: 999px;
-  padding: 11px 16px;
-  min-height: 44px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.06s ease;
-}
-.locate-btn:active {
-  transform: scale(0.96);
-}
-
-/* --- top-center status pill (loading / zoom hint / empty) --- */
+/* --- top-center status pill (loading / empty) --- */
 .map-status {
   position: absolute;
   z-index: 5;
-  top: calc(64px + var(--safe-top));
+  top: calc(58px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -177,77 +112,6 @@ a {
   }
 }
 
-/* --- legend (collapsible, bottom-right) --- */
-.legend {
-  position: absolute;
-  z-index: 5;
-  right: 12px;
-  bottom: calc(30px + var(--safe-bottom));
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 8px;
-}
-.legend__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 999px;
-  padding: 8px 13px;
-  min-height: 38px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-}
-.legend__caret {
-  color: var(--muted);
-  font-size: 10px;
-}
-.legend__body {
-  background: rgba(255, 255, 255, 0.97);
-  border-radius: 12px;
-  padding: 10px 12px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-  font-size: 12px;
-  color: var(--text);
-  max-width: 74vw;
-}
-.legend__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 3px 0;
-}
-.legend__dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex: none;
-}
-.legend__ring {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex: none;
-  background: #fff;
-}
-.legend__ring--open {
-  border: 2.5px solid var(--open);
-}
-.legend__ring--faded {
-  border: 1.5px solid #cbd5e1;
-  opacity: 0.7;
-}
-.legend__sep {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 6px 0;
-}
-
 /* --- markers (react-map-gl Marker overlays) --- */
 .user-dot {
   display: block;
@@ -258,6 +122,16 @@ a {
   border: 3px solid #fff;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
 }
+.nearest-ring {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid var(--open);
+  background: rgba(22, 163, 74, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
 .cluster-bubble {
   display: flex;
   align-items: center;
@@ -280,23 +154,146 @@ a {
   transform: scale(0.96);
 }
 
-.nearest-ring {
-  display: block;
-  width: 26px;
-  height: 26px;
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  border: 3px solid var(--open);
-  background: rgba(22, 163, 74, 0.15);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+  border: 2px solid transparent;
+  flex: none;
+}
+.dot--sm {
+  width: 8px;
+  height: 8px;
+  border: none;
 }
 
-/* --- nearest-open banner (the "Ambos" card) --- */
-.nearest {
+/* --- bottom UI column: FAB → nearest card → control bar --- */
+.bottom-ui {
   position: absolute;
   z-index: 6;
-  left: 12px;
-  right: 12px;
-  bottom: calc(96px + var(--safe-bottom));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px calc(10px + var(--safe-bottom));
+  pointer-events: none;
+}
+.bottom-ui .fab,
+.bottom-ui .bar,
+.bottom-ui .nearest {
+  pointer-events: auto;
+}
+
+.bottom-ui__fabrow {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  justify-content: flex-end;
+}
+.fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  color: var(--text);
+  border: none;
+  border-radius: 999px;
+  padding: 11px 16px;
+  min-height: 44px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.06s ease;
+}
+.fab:active {
+  transform: scale(0.96);
+}
+
+.bar {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.segmented {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  background: #eef2f7;
+  border-radius: 11px;
+  padding: 3px;
+}
+.segmented__btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 2px;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.segmented__btn--on {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.open-now {
+  flex: none;
+  background: var(--panel);
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 8px 12px;
+  min-height: 38px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.open-now--on {
+  background: var(--open);
+  border-color: var(--open);
+  color: #fff;
+}
+
+.bar__more {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* --- nearest-open banner (in the bottom column, above the bar) --- */
+.nearest {
+  width: 100%;
+  max-width: 560px;
   display: flex;
   align-items: stretch;
   gap: 8px;
@@ -357,28 +354,156 @@ a {
   background: #eef2f7;
 }
 
-.dot {
-  display: inline-block;
+/* --- overflow sheet: filters + legend + data note --- */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+}
+.sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  border: none;
+  cursor: pointer;
+}
+.sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  max-width: 560px;
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 18px 18px 0 0;
+  padding: 8px 16px calc(14px + var(--safe-bottom));
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+  animation: sheet-up 0.18s ease;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.sheet__title {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sheet__note {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.sheet__done {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  min-height: 46px;
+  border: none;
+  border-radius: 10px;
+  background: var(--text);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.switch-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+.switch-row__text {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  font-weight: 600;
+}
+.switch-row__text small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.switch {
+  flex: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.12s ease;
+}
+.switch--on {
+  background: var(--open);
+}
+.switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.12s ease;
+}
+.switch--on .switch__knob {
+  left: 21px;
+}
+
+/* --- legend rows (inside the sheet) --- */
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 13px;
+}
+.legend__dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid transparent;
   flex: none;
 }
-
-/* --- attribution --- */
-.attribution {
-  position: absolute;
-  z-index: 4;
-  bottom: calc(6px + var(--safe-bottom));
-  left: 8px;
-  color: #fff;
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 4px 8px;
-  border-radius: 6px;
-  line-height: 1.3;
-  max-width: 52vw;
+.legend__ring {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  background: #fff;
+}
+.legend__ring--open {
+  border: 2.5px solid var(--open);
+}
+.legend__ring--faded {
+  border: 1.5px solid #cbd5e1;
+  opacity: 0.7;
+}
+.legend__sep {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 6px 0;
 }
 
 /* --- store detail card (bottom sheet) --- */
@@ -388,6 +513,8 @@ a {
   left: 12px;
   right: 12px;
   bottom: calc(12px + var(--safe-bottom));
+  margin: 0 auto;
+  max-width: 560px;
   max-height: 70dvh;
   overflow-y: auto;
   background: var(--panel);
@@ -448,7 +575,6 @@ a {
   color: #075985;
 }
 
-/* Primary action on the store card. */
 .cta-directions {
   display: flex;
   align-items: center;

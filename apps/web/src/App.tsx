@@ -2,6 +2,7 @@ import type { Cluster, MapStore, NearbyStore, Ordinance } from '@cervezadonde/sh
 import type { StyleSpecification } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, {
+  AttributionControl,
   Layer,
   type MapLayerMouseEvent,
   type MapRef,
@@ -10,7 +11,7 @@ import MapGL, {
   type ViewStateChangeEvent,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { FilterBar, Legend, MapStatus, TimeChip, type UiFilters } from './Controls.js';
+import { BottomBar, MapStatus, MoreSheet, TimeChip, type UiFilters } from './Controls.js';
 import { NearestOpenCard } from './NearestOpenCard.js';
 import { StoreCard } from './StoreCard.js';
 import { type Filters, fetchClusters, fetchMap, fetchNearby } from './api.js';
@@ -81,6 +82,7 @@ export function App() {
   const [nearest, setNearest] = useState<NearbyStore | null>(null);
   const [nearestLoading, setNearestLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
@@ -145,6 +147,16 @@ export function App() {
   }, [filters, userLoc]);
 
   const onLoad = useCallback(() => {
+    if (import.meta.env.DEV) {
+      // Dev-only handle for browser automation; stripped from prod builds.
+      (window as unknown as { __MAP__?: unknown }).__MAP__ = mapRef.current?.getMap();
+    }
+    // MapLibre mounts the compact attribution expanded (<details open>), which
+    // covers the time chip; collapse it — it stays reachable behind the ⓘ.
+    mapRef.current
+      ?.getContainer()
+      .querySelector('details.maplibregl-ctrl-attrib')
+      ?.removeAttribute('open');
     void refreshFromMap();
   }, [refreshFromMap]);
 
@@ -209,11 +221,19 @@ export function App() {
           zoom: 13,
         }}
         mapStyle={MAP_STYLE}
+        attributionControl={false}
         onLoad={onLoad}
         onMoveEnd={onMoveEnd}
         interactiveLayerIds={['unclustered-point']}
         onClick={onMapClick}
       >
+        {/* One compact attribution (top-right, out of everything's way) holds
+            both the tile credit and our data-source note. */}
+        <AttributionControl
+          position="top-right"
+          compact
+          customAttribution="Datos: Ayuntamiento de Madrid · Horarios de OSM"
+        />
         {/* Individual coloured markers (zoomed in) — the product's core view. */}
         <Source id="points" type="geojson" data={pointsData}>
           <Layer
@@ -294,24 +314,27 @@ export function App() {
 
       <div className="top-left">
         <TimeChip now={now} takeawayAllowed={ordinance?.takeaway_allowed ?? null} />
-        <FilterBar filters={filters} onChange={setFilters} />
       </div>
-
-      <button type="button" className="locate-btn" onClick={locate}>
-        <span aria-hidden>📍</span> Cerca de mí
-      </button>
 
       <MapStatus loading={loading} empty={empty} />
 
-      <Legend />
-
-      {userLoc && (
-        <NearestOpenCard store={nearest} loading={nearestLoading} onSelect={selectNearby} />
-      )}
-
-      <div className="attribution">
-        Datos: Ayuntamiento de Madrid + © OpenStreetMap contributors. Horarios de OSM.
+      {/* Bottom-anchored column: FAB, nearest-open card and the control bar
+          stack naturally without manual offsets. */}
+      <div className="bottom-ui">
+        <div className="bottom-ui__fabrow">
+          <button type="button" className="fab" onClick={locate}>
+            <span aria-hidden>📍</span> Cerca de mí
+          </button>
+        </div>
+        {userLoc && (
+          <NearestOpenCard store={nearest} loading={nearestLoading} onSelect={selectNearby} />
+        )}
+        <BottomBar filters={filters} onChange={setFilters} onMore={() => setSheetOpen(true)} />
       </div>
+
+      {sheetOpen && (
+        <MoreSheet filters={filters} onChange={setFilters} onClose={() => setSheetOpen(false)} />
+      )}
 
       {selected && <StoreCard store={selected} onClose={() => setSelected(null)} />}
     </div>
