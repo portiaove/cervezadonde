@@ -105,6 +105,12 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
     const now = parseNow(at_time);
     if (!now) return reply.code(400).send({ error: 'invalid_at_time' });
 
+    // open-now is computed in JS (opening-hours parsing), so it can't go in the
+    // WHERE clause. Over-fetch the nearest rows and trim after filtering —
+    // otherwise LIMIT applies before the open filter and "nearest open" would
+    // return empty whenever the single nearest place happens to be closed.
+    const fetchLimit = open_now ? Math.max(limit, 200) : limit;
+
     const sql = getSql();
     const rows = await sql<NearbyRow[]>`
       WITH origin AS (
@@ -137,7 +143,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         ${hideChainsClause(sql, hide_chains)}
         ${minConfidenceClause(sql, min_confidence)}
       ORDER BY s.geom::geography <-> origin.g
-      LIMIT ${limit}
+      LIMIT ${fetchLimit}
     `;
 
     let results = rows.map((r) => {
@@ -149,7 +155,9 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
       } satisfies NearbyStore;
     });
 
-    if (open_now) results = results.filter((r) => r.open_now.sells_beer_now);
+    if (open_now) {
+      results = results.filter((r) => r.open_now.sells_beer_now).slice(0, limit);
+    }
 
     const response: NearbyResponse = {
       now: now.toISOString(),
