@@ -4,7 +4,7 @@ name: Deploy
 # Data is NOT deployed here — it flows PC -> VPS via scripts/push-data.ps1.
 # Requires two repo secrets:
 #   DEPLOY_SSH_KEY  — private key whose public half is in the VPS authorized_keys
-#   DEPLOY_HOST     — the VPS IP (e.g. 178.104.48.240)
+#   DEPLOY_HOST     — the VPS IP or hostname
 on:
   push:
     branches: [main]

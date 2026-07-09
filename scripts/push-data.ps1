@@ -1,7 +1,7 @@
 # One-command data refresh: dump serving tables locally -> upload -> restore on VPS.
 # Run on your PC (PowerShell) after a weekly ingest:  .\scripts\push-data.ps1
 param(
-  [string]$VpsHost   = "root@178.104.48.240",
+  [string]$VpsHost   = "root@cervezadonde.es",
   [string]$Container = "minimarket-postgres",
   [string]$DbUser    = "minimarket",
   [string]$DbName    = "minimarket"
