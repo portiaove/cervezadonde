@@ -92,6 +92,29 @@ docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up 
 # for web/UI changes, rebuild dist on your PC and re-scp to deploy/web-dist/
 ```
 
+## Automation
+
+Two flows, deliberately separate (ADR-006): **code** deploys from GitHub,
+**data** is pushed from your PC.
+
+### Code — GitHub Actions (`.github/workflows/deploy.yml`)
+
+Every push to `main` builds the web and redeploys (web build + `git pull` +
+`docker compose up -d --build`). One-time setup — two repo secrets:
+
+- `DEPLOY_SSH_KEY` — a private key whose public half is in the VPS
+  `~/.ssh/authorized_keys` (use a dedicated deploy key, no passphrase).
+- `DEPLOY_HOST` — the VPS IP.
+
+### Data — one command from your PC
+
+```powershell
+.\scripts\push-data.ps1        # dump serving tables -> upload -> restore on VPS
+```
+
+It calls `deploy/restore-data.sh` on the VPS (truncate + `pg_restore` + count).
+Schedule it weekly with Windows Task Scheduler if you like.
+
 ## Notes
 
 - Port 5432 is bound to `127.0.0.1` only. To poke the prod DB from your PC,
