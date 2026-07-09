@@ -78,3 +78,33 @@ export const MapResponse = z.object({
   results: z.array(MapStore),
 });
 export type MapResponse = z.infer<typeof MapResponse>;
+
+// --- Clusters (server-side grid aggregation for wide zoom) ------------------
+
+export const ClusterQuery = z.object({
+  north: z.coerce.number().gte(-90).lte(90),
+  south: z.coerce.number().gte(-90).lte(90),
+  east: z.coerce.number().gte(-180).lte(180),
+  west: z.coerce.number().gte(-180).lte(180),
+  // Grid cell size in degrees (the client derives it from ~60px at the current
+  // zoom). Clamped to a sane range so a cell is never degenerate or huge.
+  cell: z.coerce.number().positive().min(0.0005).max(20),
+  place_type: placeTypeListParam,
+  intent: Intent.optional(),
+  min_confidence: ConfidenceLevel.optional(),
+  hide_chains: z.coerce.boolean().default(false),
+});
+export type ClusterQuery = z.infer<typeof ClusterQuery>;
+
+/** One aggregated grid cell: real total count of stores it holds. */
+export const Cluster = z.object({
+  lng: z.number(),
+  lat: z.number(),
+  count: z.number().int(),
+});
+export type Cluster = z.infer<typeof Cluster>;
+
+export const ClusterResponse = z.object({
+  clusters: z.array(Cluster),
+});
+export type ClusterResponse = z.infer<typeof ClusterResponse>;

@@ -1,6 +1,7 @@
-import type { FastifyInstance } from 'fastify';
-import { getSql, type Sql } from '@cervezadonde/db';
+import { type Sql, getSql } from '@cervezadonde/db';
 import {
+  ClusterQuery,
+  type ClusterResponse,
   type Intent,
   MapQuery,
   type MapResponse,
@@ -11,11 +12,8 @@ import {
   type Ordinance,
   type PlaceType,
 } from '@cervezadonde/shared';
-import {
-  ORDINANCE,
-  canSellBeerNow,
-  isAlcoholTakeawayProhibited,
-} from '../openNow.js';
+import type { FastifyInstance } from 'fastify';
+import { ORDINANCE, canSellBeerNow, isAlcoholTakeawayProhibited } from '../openNow.js';
 
 type SharedRow = {
   id: string;
@@ -80,21 +78,16 @@ const placeTypeClause = (sql: Sql, placeTypes: PlaceType[] | undefined) => {
   return sql`AND s.place_type::text = ANY(${placeTypes})`;
 };
 
-const hideChainsClause = (sql: Sql, hide: boolean) =>
-  hide ? sql`AND s.is_chain = FALSE` : sql``;
+const hideChainsClause = (sql: Sql, hide: boolean) => (hide ? sql`AND s.is_chain = FALSE` : sql``);
 
-const minConfidenceClause = (
-  sql: Sql,
-  level: NearbyStore['confidence_level'] | undefined,
-) => (level ? sql`AND s.confidence_level::text = ${level}` : sql``);
+const minConfidenceClause = (sql: Sql, level: NearbyStore['confidence_level'] | undefined) =>
+  level ? sql`AND s.confidence_level::text = ${level}` : sql``;
 
 export async function registerStoresRoutes(app: FastifyInstance): Promise<void> {
   app.get('/nearby', async (req, reply) => {
     const parsed = NearbyQuery.safeParse(req.query);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'invalid_query', issues: parsed.error.issues });
+      return reply.code(400).send({ error: 'invalid_query', issues: parsed.error.issues });
     }
     const {
       lat,
@@ -169,9 +162,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
   app.get('/map', async (req, reply) => {
     const parsed = MapQuery.safeParse(req.query);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'invalid_query', issues: parsed.error.issues });
+      return reply.code(400).send({ error: 'invalid_query', issues: parsed.error.issues });
     }
     const {
       north,
@@ -216,7 +207,11 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         ${placeTypeClause(sql, place_type)}
         ${hideChainsClause(sql, hide_chains)}
         ${minConfidenceClause(sql, min_confidence)}
-      ORDER BY s.confidence_score DESC, s.id
+      -- Deterministic spatial-uniform sample: when the viewport holds more
+      -- stores than the limit (wide zoom), md5(id) spreads the shown points
+      -- evenly across the bbox instead of piling them onto high-confidence
+      -- Madrid. Stable across pans (deterministic) so markers do not flicker.
+      ORDER BY md5(s.id::text)
       LIMIT ${limit}
     `;
 
@@ -232,6 +227,38 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
       ordinance: buildOrdinance(now),
       results,
     };
+    return response;
+  });
+
+  // Server-side grid aggregation for wide zoom. Returns REAL total counts per
+  // cell (not a capped sample), so the map reads as populated everywhere.
+  // Note: open-now is computed in JS per store, so it can't be filtered here;
+  // cluster counts are of all matching places. open_now applies once zoomed in.
+  app.get('/clusters', async (req, reply) => {
+    const parsed = ClusterQuery.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_query', issues: parsed.error.issues });
+    }
+    const { north, south, east, west, cell, place_type, intent, min_confidence, hide_chains } =
+      parsed.data;
+
+    const sql = getSql();
+    const rows = await sql<{ lng: number; lat: number; count: number }[]>`
+      SELECT
+        AVG(ST_X(s.geom))::float8 AS lng,
+        AVG(ST_Y(s.geom))::float8 AS lat,
+        COUNT(*)::int             AS count
+      FROM stores s
+      WHERE s.geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
+        AND s.confidence_level <> 'excluded'
+        ${intentClause(sql, intent)}
+        ${placeTypeClause(sql, place_type)}
+        ${hideChainsClause(sql, hide_chains)}
+        ${minConfidenceClause(sql, min_confidence)}
+      GROUP BY FLOOR(ST_X(s.geom) / ${cell}), FLOOR(ST_Y(s.geom) / ${cell})
+    `;
+
+    const response: ClusterResponse = { clusters: rows };
     return response;
   });
 }
