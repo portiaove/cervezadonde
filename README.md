@@ -141,6 +141,7 @@ Each source's ingest only soft-deactivates its own rows.
 - [`docs/11-runbook.md`](./docs/11-runbook.md) — operations runbook
 - [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours
 - [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
+- [`docs/14-roadmap.md`](./docs/14-roadmap.md) — next steps / handoff (UX, censos, ops, hours)
 - [`decisions/`](./decisions/) — ADR-001…006
 
 ## Attribution
