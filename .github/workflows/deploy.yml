@@ -56,3 +56,14 @@ jobs:
             git pull --ff-only &&
             docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
           '
+
+      # Schema must follow code atomically: a deploy that ships SQL referencing
+      # a new column would 500 until someone remembers the manual migrate step
+      # (it happened: opening_hours_web broke /stores/map in prod).
+      - name: Run DB migrations
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.DEPLOY_HOST }}" '
+            cd /root/cervezadonde &&
+            docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
+              exec -T api pnpm --filter @cervezadonde/db migrate up
+          '
