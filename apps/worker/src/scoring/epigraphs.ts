@@ -51,8 +51,7 @@ export const TARGET_EPIGRAPH_CODES: ReadonlySet<string> = new Set([
   ...Object.keys(ADJACENT_TARGET_EPIGRAPHS),
 ]);
 
-export const isTargetEpigraph = (code: string): boolean =>
-  TARGET_EPIGRAPH_CODES.has(code);
+export const isTargetEpigraph = (code: string): boolean => TARGET_EPIGRAPH_CODES.has(code);
 
 // --- Beer target set (M6+) --------------------------------------------------
 // Bars / cafeterías serve beer on-site. These join the target set in v2.
@@ -65,12 +64,9 @@ export const BAR_EPIGRAPHS = {
   '561005': 'Cafeterias',
 } as const;
 
-export const BAR_EPIGRAPH_CODES: ReadonlySet<string> = new Set(
-  Object.keys(BAR_EPIGRAPHS),
-);
+export const BAR_EPIGRAPH_CODES: ReadonlySet<string> = new Set(Object.keys(BAR_EPIGRAPHS));
 
-export const isBarEpigraph = (code: string): boolean =>
-  BAR_EPIGRAPH_CODES.has(code);
+export const isBarEpigraph = (code: string): boolean => BAR_EPIGRAPH_CODES.has(code);
 
 /** Expanded target set used by the beer ingest (M6d). */
 export const TARGET_EPIGRAPH_CODES_V2: ReadonlySet<string> = new Set([
@@ -79,5 +75,4 @@ export const TARGET_EPIGRAPH_CODES_V2: ReadonlySet<string> = new Set([
   ...Object.keys(BAR_EPIGRAPHS),
 ]);
 
-export const isTargetEpigraphV2 = (code: string): boolean =>
-  TARGET_EPIGRAPH_CODES_V2.has(code);
+export const isTargetEpigraphV2 = (code: string): boolean => TARGET_EPIGRAPH_CODES_V2.has(code);

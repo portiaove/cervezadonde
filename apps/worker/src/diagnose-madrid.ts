@@ -1,12 +1,12 @@
 import { createReadStream } from 'node:fs';
 import { parse } from 'csv-parse';
+import { downloadIfNeeded } from './download.js';
 import {
   MADRID_ACTIVIDADES_COLUMNS,
   MADRID_CSV_DELIMITER,
   getCacheDir,
   getMadridUrls,
 } from './sources/madrid.js';
-import { downloadIfNeeded } from './download.js';
 
 type CodeCount = { desc: string; count: number };
 
@@ -53,11 +53,7 @@ const looksUtf8 = (buf: Buffer): boolean => {
   }
 };
 
-const bumpCount = (
-  bucket: Record<string, CodeCount>,
-  code: string,
-  desc: string,
-): void => {
+const bumpCount = (bucket: Record<string, CodeCount>, code: string, desc: string): void => {
   const existing = bucket[code];
   if (existing) existing.count += 1;
   else bucket[code] = { desc, count: 1 };

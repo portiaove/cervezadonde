@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { parse } from 'csv-parse/sync';
 import { getSql } from '@cervezadonde/db';
+import { parse } from 'csv-parse/sync';
 import { isTargetEpigraphV2 } from './scoring/epigraphs.js';
 import { scoreCandidate } from './scoring/v2.js';
 

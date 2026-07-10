@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SCORING_VERSION, normalize, scoreCandidate } from '../../src/scoring/v2.js';
 
-const CHAINS = [
-  'MERCADONA',
-  'CARREFOUR',
-  'DIA',
-  'LIDL',
-  'ALDI',
-  'EL CORTE INGLES',
-];
+const CHAINS = ['MERCADONA', 'CARREFOUR', 'DIA', 'LIDL', 'ALDI', 'EL CORTE INGLES'];
 
 const baseInput = (overrides: Partial<Parameters<typeof scoreCandidate>[0]> = {}) =>
   scoreCandidate({
