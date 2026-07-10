@@ -61,6 +61,7 @@ export type PlaceType = z.infer<typeof PlaceType>;
 /** Where the hours behind an open-now verdict came from. */
 export const HoursSource = z.enum([
   'osm', // real opening_hours from OSM — "confirmado"
+  'website', // crawled from the business's own site (crawl:hours) — "confirmado"
   'estimated', // default schedule for the place_type — "horario habitual"
   'none', // no hours and no applicable default
 ]);

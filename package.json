@@ -21,6 +21,7 @@
     "worker:ingest:sample": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:sample",
     "worker:ingest:madrid": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:madrid",
     "worker:ingest:barcelona": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:barcelona",
+    "worker:crawl:hours": "dotenv -e .env -- pnpm --filter @cervezadonde/worker crawl:hours",
     "worker:ingest:osm": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm",
     "worker:ingest:osm:region": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:region",
     "worker:ingest:osm:pbf": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:pbf",

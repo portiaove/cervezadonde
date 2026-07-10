@@ -24,6 +24,8 @@ export type PlaceForOpenNow = {
   place_type: 'bar' | 'supermercado' | 'alimentacion' | 'bodega' | 'tienda_24h' | 'otro';
   sells_takeaway_beer: boolean;
   opening_hours_osm: string | null;
+  /** Hours crawled from the business website (crawl:hours). Optional for callers without it. */
+  opening_hours_web?: string | null;
 };
 
 export type IsOpenResult = {
@@ -31,7 +33,7 @@ export type IsOpenResult = {
   closes_at: string | null;
 };
 
-export type HoursSource = 'osm' | 'estimated' | 'none';
+export type HoursSource = 'osm' | 'website' | 'estimated' | 'none';
 
 export type CanSellBeerResult = {
   open: boolean;
@@ -129,9 +131,19 @@ export function isOpenNow(openingHoursOsm: string | null, now: Date): IsOpenResu
  * - Shop without takeaway-beer flag → never sells beer.
  */
 export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerResult {
-  const realHours = place.opening_hours_osm?.trim() || null;
+  // Confirmed hours: OSM first (community-curated), then the business's own
+  // website (crawl:hours); only without both does the estimate kick in.
+  const osmHours = place.opening_hours_osm?.trim() || null;
+  const webHours = place.opening_hours_web?.trim() || null;
+  const realHours = osmHours ?? webHours;
   const hours = realHours ?? DEFAULT_HOURS_BY_TYPE[place.place_type];
-  const hours_source: HoursSource = realHours ? 'osm' : hours ? 'estimated' : 'none';
+  const hours_source: HoursSource = osmHours
+    ? 'osm'
+    : webHours
+      ? 'website'
+      : hours
+        ? 'estimated'
+        : 'none';
   const estimated = hours_source === 'estimated';
 
   // No hours and no sensible default — be conservative, don't claim anything.
@@ -164,7 +176,9 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
       sells_beer_now: true,
       reason: estimated
         ? 'Suele estar abierto a esta hora (horario no confirmado).'
-        : 'Bar abierto en horario habitual.',
+        : hours_source === 'website'
+          ? 'Bar abierto (horario de su web).'
+          : 'Bar abierto en horario habitual.',
       hours_source,
     };
   }
@@ -197,7 +211,9 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
     sells_beer_now: true,
     reason: estimated
       ? 'Suele estar abierto (horario no confirmado). Puede venderte cerveza para llevar.'
-      : 'Abierto. Puede venderte cerveza para llevar.',
+      : hours_source === 'website'
+        ? 'Abierto (horario de su web). Puede venderte cerveza para llevar.'
+        : 'Abierto. Puede venderte cerveza para llevar.',
     hours_source,
   };
 }

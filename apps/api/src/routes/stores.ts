@@ -28,6 +28,7 @@ type SharedRow = {
   sells_takeaway_beer: boolean;
   sells_onsite_beer: boolean;
   opening_hours_osm: string | null;
+  opening_hours_web: string | null;
   badges: NearbyStore['badges'];
   confidence_level: NearbyStore['confidence_level'];
   confidence_score: number;
@@ -53,16 +54,19 @@ const buildOrdinance = (now: Date): Ordinance => ({
 const enrichWithOpenNow = <T extends SharedRow>(
   row: T,
   now: Date,
-): Omit<T, 'opening_hours_osm'> & { open_now: ReturnType<typeof canSellBeerNow> } => {
+): Omit<T, 'opening_hours_osm' | 'opening_hours_web'> & {
+  open_now: ReturnType<typeof canSellBeerNow>;
+} => {
   const open_now = canSellBeerNow(
     {
       place_type: row.place_type ?? 'otro',
       sells_takeaway_beer: row.sells_takeaway_beer,
       opening_hours_osm: row.opening_hours_osm,
+      opening_hours_web: row.opening_hours_web,
     },
     now,
   );
-  const { opening_hours_osm: _hours, ...rest } = row;
+  const { opening_hours_osm: _hours, opening_hours_web: _webHours, ...rest } = row;
   return { ...rest, open_now };
 };
 
@@ -131,6 +135,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.sells_takeaway_beer                               AS sells_takeaway_beer,
         s.sells_onsite_beer                                 AS sells_onsite_beer,
         s.opening_hours_osm                                 AS opening_hours_osm,
+        s.opening_hours_web                                 AS opening_hours_web,
         s.badges                                            AS badges,
         s.confidence_level                                  AS confidence_level,
         s.confidence_score                                  AS confidence_score,
@@ -204,6 +209,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.sells_takeaway_beer  AS sells_takeaway_beer,
         s.sells_onsite_beer    AS sells_onsite_beer,
         s.opening_hours_osm    AS opening_hours_osm,
+        s.opening_hours_web    AS opening_hours_web,
         s.badges               AS badges,
         s.confidence_level     AS confidence_level,
         s.confidence_score     AS confidence_score,

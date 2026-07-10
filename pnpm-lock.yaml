@@ -100,6 +100,9 @@ importers:
       csv-parse:
         specifier: ^5.5.6
         version: 5.6.0
+      opening_hours:
+        specifier: ^3.8.0
+        version: 3.12.0(typescript@5.9.3)
     devDependencies:
       '@types/node':
         specifier: ^22.10.0

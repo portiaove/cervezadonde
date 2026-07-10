@@ -1,5 +1,6 @@
 import { closeSql } from '@cervezadonde/db';
 import { Command } from 'commander';
+import { crawlHours } from './crawl-hours.js';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
 import { ingestBarcelona } from './ingest-barcelona.js';
 import { ingestMadrid } from './ingest-madrid.js';
@@ -131,6 +132,31 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:osm:pbf failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('crawl:hours')
+  .description('Crawl store websites for schema.org opening hours (incremental).')
+  .option('-l, --limit <n>', 'cap the number of URLs (for test runs)', (v) =>
+    Number.parseInt(v, 10),
+  )
+  .option('-c, --concurrency <n>', 'parallel hosts', (v) => Number.parseInt(v, 10))
+  .option('--max-age-days <n>', 're-check sites older than this', (v) => Number.parseInt(v, 10))
+  .action(async (opts: { limit?: number; concurrency?: number; maxAgeDays?: number }) => {
+    try {
+      const summary = await crawlHours({
+        limit: opts.limit,
+        concurrency: opts.concurrency,
+        maxAgeDays: opts.maxAgeDays,
+        log: (m) => console.error(m),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+    } catch (err) {
+      console.error('crawl:hours failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();

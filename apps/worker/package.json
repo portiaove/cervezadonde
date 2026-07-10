@@ -11,6 +11,7 @@
     "ingest:sample": "tsx src/cli.ts ingest:sample",
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",
+    "crawl:hours": "tsx src/cli.ts crawl:hours",
     "ingest:osm": "tsx src/cli.ts ingest:osm",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
     "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",
@@ -20,7 +21,8 @@
     "@cervezadonde/db": "workspace:*",
     "@cervezadonde/shared": "workspace:*",
     "commander": "^12.1.0",
-    "csv-parse": "^5.5.6"
+    "csv-parse": "^5.5.6",
+    "opening_hours": "^3.8.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
