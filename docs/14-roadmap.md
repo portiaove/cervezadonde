@@ -50,9 +50,13 @@ To extend to other cities:
   `madrid_censo` → `censo_madrid`).
 - **One adapter per city** (each open-data portal has its own schema): download
   + parse + map to the `stores` shape under `source_name='censo_<city>'`, same
-  as `ingest-madrid.ts`. Candidates with usable open data: **Barcelona**
-  ("Cens d'activitats econòmiques en planta baixa"), **Valencia**, **Zaragoza**,
-  **Málaga**, **Sevilla**.
+  as `ingest-madrid.ts`.
+  - **Barcelona: DONE** (`pnpm worker:ingest:barcelona`; "Cens d'activitats
+    econòmiques en planta baixa" 2024, CC BY 4.0). Classification is a direct
+    activity-code lookup (`sources/barcelona.ts`) — far simpler than Madrid's
+    epigraph heuristics. 12,963 beer-relevant premises; enrich flags ~8,258
+    OSM stores `oficial` in BCN and keeps ~6,100 censo-only places.
+  - Remaining candidates: **Valencia**, **Zaragoza**, **Málaga**, **Sevilla**.
 - This is **incremental polish**: OSM already covers these cities; the censo
   only adds the official confirmation + richer address/status.
 - Decide per city whether the adapter effort is worth the quality gain.

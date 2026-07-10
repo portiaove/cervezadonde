@@ -23,6 +23,7 @@ const OSMIUM_IMAGE = 'cervezadonde-osmium';
 /** Geofabrik extract per region. */
 export const REGION_PBF: Record<string, string> = {
   'comunidad-madrid': 'https://download.geofabrik.de/europe/spain/madrid-latest.osm.pbf',
+  cataluna: 'https://download.geofabrik.de/europe/spain/cataluna-latest.osm.pbf',
   spain: 'https://download.geofabrik.de/europe/spain-latest.osm.pbf',
 };
 

@@ -11,13 +11,7 @@ import { isBarEpigraph } from './epigraphs.js';
 export const SCORING_VERSION = 'v2-beer';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'excluded';
-export type PlaceType =
-  | 'bar'
-  | 'supermercado'
-  | 'alimentacion'
-  | 'bodega'
-  | 'tienda_24h'
-  | 'otro';
+export type PlaceType = 'bar' | 'supermercado' | 'alimentacion' | 'bodega' | 'tienda_24h' | 'otro';
 
 export type ScoreInput = {
   name: string;
@@ -58,12 +52,7 @@ const NAME_HINT_BODEGA = ['BODEGA', 'VINOS'];
 const NAME_HINT_SHOP = ['ALIMENTACION', 'MINI MARKET', 'MINIMARKET', 'ULTRAMARINOS'];
 const NAME_NEGATIVE_BAR = ['CONFITERIA', 'HELADERIA', 'PANADERIA', 'PASTELERIA'];
 
-const SHOP_EPIGRAPHS_FOR_ALIMENTACION = new Set([
-  '471101',
-  '471104',
-  '472911',
-  '472501',
-]);
+const SHOP_EPIGRAPHS_FOR_ALIMENTACION = new Set(['471101', '471104', '472911', '472501']);
 
 const CLOSED_STATUS_KEYWORDS = ['BAJA', 'CERRADO', 'INACTIVO', 'ANULAD', 'USO VIVIENDA'];
 
@@ -83,13 +72,7 @@ const OSM_SHOP_TAKEAWAY = new Set([
   'wine',
 ]);
 
-const OSM_AMENITY_ONSITE = new Set([
-  'bar',
-  'pub',
-  'cafe',
-  'restaurant',
-  'fast_food',
-]);
+const OSM_AMENITY_ONSITE = new Set(['bar', 'pub', 'cafe', 'restaurant', 'fast_food']);
 
 const PLACE_TYPE_TO_BADGE: Record<PlaceType, string | null> = {
   bar: 'bar',
@@ -115,7 +98,7 @@ export const normalize = (s: string | null | undefined): string => {
 const containsAny = (haystack: string, needles: readonly string[]): boolean =>
   needles.some((n) => haystack.includes(n));
 
-const matchesChainPattern = (
+export const matchesChainPattern = (
   normalizedName: string,
   patterns: readonly string[],
 ): boolean => {
@@ -134,10 +117,9 @@ const isOfficiallyClosed = (status: string | null): boolean => {
   return CLOSED_STATUS_KEYWORDS.some((k) => s.includes(k));
 };
 
-const clamp = (n: number, lo = 0, hi = 100): number =>
-  Math.max(lo, Math.min(hi, n));
+const clamp = (n: number, lo = 0, hi = 100): number => Math.max(lo, Math.min(hi, n));
 
-const levelFromScore = (score: number): ConfidenceLevel => {
+export const levelFromScore = (score: number): ConfidenceLevel => {
   if (score >= 80) return 'high';
   if (score >= 55) return 'medium';
   if (score >= 30) return 'low';
@@ -183,18 +165,12 @@ const derivePlaceType = (input: {
   if (isChain) return 'supermercado';
 
   // 5. 24h indicators.
-  if (
-    epigraphCodes.includes('471103') ||
-    containsAny(normalizedName, NAME_HINT_24H)
-  ) {
+  if (epigraphCodes.includes('471103') || containsAny(normalizedName, NAME_HINT_24H)) {
     return 'tienda_24h';
   }
 
   // 6. Bodega indicators.
-  if (
-    epigraphCodes.includes('472502') ||
-    containsAny(normalizedName, NAME_HINT_BODEGA)
-  ) {
+  if (epigraphCodes.includes('472502') || containsAny(normalizedName, NAME_HINT_BODEGA)) {
     return 'bodega';
   }
 

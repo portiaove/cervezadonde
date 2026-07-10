@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "ingest:sample": "tsx src/cli.ts ingest:sample",
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
+    "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",
     "ingest:osm": "tsx src/cli.ts ingest:osm",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
     "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",
