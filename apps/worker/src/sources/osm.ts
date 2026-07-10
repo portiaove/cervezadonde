@@ -120,6 +120,25 @@ const buildOsmAddress = (tags: Record<string, string>): string | null => {
 };
 
 /**
+ * The business website from OSM tags, normalised to an absolute http(s) URL
+ * (bare "www.foo.es" values get https://). Junk (spaces, no dot, other
+ * schemes, >500 chars) returns null. Feeds the schema.org hours crawler.
+ */
+export function extractWebsite(tags: Record<string, string>): string | null {
+  const raw = (tags.website ?? tags['contact:website'] ?? '').trim();
+  if (!raw || raw.length > 500 || /\s/.test(raw)) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  if (!/^https?:\/\//i.test(withScheme)) return null;
+  try {
+    const url = new URL(withScheme);
+    if (!url.hostname.includes('.')) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Parse a raw Overpass response into geolocated places. Elements without a
  * usable coordinate or without any of our target tags are dropped.
  */

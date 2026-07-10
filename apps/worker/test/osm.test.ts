@@ -4,6 +4,7 @@ import {
   type StoreCandidate,
   buildOverpassQuery,
   classifyOsmPlace,
+  extractWebsite,
   getOverpassConfig,
   nameSimilarity,
   normalizeName,
@@ -187,5 +188,25 @@ describe('classifyOsmPlace', () => {
 
   it('a bar amenity wins over a shop tag on the same element', () => {
     expect(classifyOsmPlace(place({ amenity: 'bar', shop: 'convenience' })).placeType).toBe('bar');
+  });
+});
+
+describe('extractWebsite', () => {
+  it('picks website, falls back to contact:website', () => {
+    expect(extractWebsite({ website: 'https://bar.es' })).toBe('https://bar.es/');
+    expect(extractWebsite({ 'contact:website': 'https://bar.cat/carta' })).toBe(
+      'https://bar.cat/carta',
+    );
+  });
+
+  it('normalises bare domains to https', () => {
+    expect(extractWebsite({ website: 'www.bar.es' })).toBe('https://www.bar.es/');
+  });
+
+  it('rejects junk', () => {
+    expect(extractWebsite({})).toBeNull();
+    expect(extractWebsite({ website: 'no me acuerdo' })).toBeNull();
+    expect(extractWebsite({ website: 'mailto:foo@bar.es' })).toBeNull();
+    expect(extractWebsite({ website: 'localhost' })).toBeNull();
   });
 });

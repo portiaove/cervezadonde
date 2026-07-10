@@ -16,6 +16,7 @@ import {
   type OsmPlace,
   buildOverpassQuery,
   classifyOsmPlace,
+  extractWebsite,
   getOverpassConfig,
   normalizeName,
   parseOverpass,
@@ -126,6 +127,7 @@ async function bulkUpsertStores(
     const onsites: number[] = [];
     const takeaways: number[] = [];
     const hours: (string | null)[] = [];
+    const websites: (string | null)[] = [];
     const cscores: number[] = [];
     const clevels: string[] = [];
     const chains: number[] = [];
@@ -143,6 +145,7 @@ async function bulkUpsertStores(
       onsites.push(c.sellsOnsiteBeer ? 1 : 0);
       takeaways.push(c.sellsTakeawayBeer ? 1 : 0);
       hours.push(p.openingHours);
+      websites.push(extractWebsite(p.tags));
       cscores.push(p.openingHours ? 80 : 55);
       clevels.push(p.openingHours ? 'high' : 'medium');
       chains.push(p.tags.brand || p.tags['brand:wikidata'] ? 1 : 0);
@@ -152,21 +155,21 @@ async function bulkUpsertStores(
       INSERT INTO stores (
         source_local_id, source_name, name, normalized_name, address,
         geom, place_type, sells_onsite_beer, sells_takeaway_beer,
-        opening_hours_osm, badges, confidence_score, confidence_level,
+        opening_hours_osm, website, badges, confidence_score, confidence_level,
         scoring_version, is_chain, last_import_run_id, last_seen_osm_at
       )
       SELECT
         t.slid, ${OSM_SOURCE_NAME}, t.name, t.nname, t.addr,
         ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326),
         t.ptype::place_type, (t.onsite = 1), (t.takeaway = 1),
-        t.hours, ARRAY[]::text[], t.cscore, t.clevel::confidence_level,
+        t.hours, t.website, ARRAY[]::text[], t.cscore, t.clevel::confidence_level,
         'osm-v1', (t.chain = 1), ${importRunId}, now()
       FROM unnest(
         ${slids}::text[], ${names}::text[], ${nnames}::text[], ${addrs}::text[],
         ${lons}::float8[], ${lats}::float8[], ${ptypes}::text[],
-        ${onsites}::int[], ${takeaways}::int[], ${hours}::text[],
+        ${onsites}::int[], ${takeaways}::int[], ${hours}::text[], ${websites}::text[],
         ${cscores}::int[], ${clevels}::text[], ${chains}::int[]
-      ) AS t(slid, name, nname, addr, lon, lat, ptype, onsite, takeaway, hours, cscore, clevel, chain)
+      ) AS t(slid, name, nname, addr, lon, lat, ptype, onsite, takeaway, hours, website, cscore, clevel, chain)
       ON CONFLICT (source_name, source_local_id) DO UPDATE SET
         name = EXCLUDED.name,
         normalized_name = EXCLUDED.normalized_name,
@@ -176,6 +179,7 @@ async function bulkUpsertStores(
         sells_onsite_beer = EXCLUDED.sells_onsite_beer,
         sells_takeaway_beer = EXCLUDED.sells_takeaway_beer,
         opening_hours_osm = EXCLUDED.opening_hours_osm,
+        website = EXCLUDED.website,
         confidence_score = EXCLUDED.confidence_score,
         confidence_level = EXCLUDED.confidence_level,
         is_chain = EXCLUDED.is_chain,
