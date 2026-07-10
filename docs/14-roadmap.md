@@ -118,10 +118,14 @@ The core product gap: only ~14% of stores have hours, so most of the map reads
 "horario no confirmado". Full analysis + options already in
 [`docs/12-hours-data-sources.md`](./12-hours-data-sources.md). Summary of the plan:
 
-1. **Default-hours heuristic** per `place_type` (labelled "horario habitual
-   estimado", never "confirmado") — cheap bridge that de-greys the map now.
+1. ~~**Default-hours heuristic**~~ **DONE**: `DEFAULT_HOURS_BY_TYPE` in
+   `apps/api/src/openNow.ts` (standard OSM syntax through the same parser),
+   surfaced as `open_now.hours_source: osm|estimated|none` and a distinct
+   light-green "suele estar abierto" state in the UI. Never claims
+   "confirmado". ⚠ The API container must run with TZ=Europe/Madrid.
 2. **Website `schema.org/OpeningHoursSpecification` crawler** — the real
-   coverage jump; we already hold ~websites via OSM, widen with Overture/FSQ.
+   coverage jump. The work queue is ready: `stores.website` (11,173 stores
+   with a website and no hours). Widen later with Overture/FSQ.
 3. **Community feedback loop** → contribute corrections back to OSM.
 4. Optional paid API (TomTom/HERE) as a coverage floor.
 

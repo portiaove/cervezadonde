@@ -6,9 +6,7 @@ export type AnyStore = MapStore | NearbyStore;
 export type MarkerIntent = 'barra' | 'lata' | 'otro';
 
 /** Open-now state used to colour rings and write copy. */
-export type MarkerState = 'open' | 'ordinance' | 'closed' | 'unconfirmed';
-
-export const UNCONFIRMED_REASON = 'Horario no confirmado.';
+export type MarkerState = 'open' | 'estimated' | 'ordinance' | 'closed' | 'unconfirmed';
 
 export function intentOf(s: AnyStore): MarkerIntent {
   if (s.sells_onsite_beer) return 'barra';
@@ -17,9 +15,10 @@ export function intentOf(s: AnyStore): MarkerIntent {
 }
 
 export function statusOf(s: AnyStore): MarkerState {
-  const { open, sells_beer_now, reason } = s.open_now;
-  if (reason === UNCONFIRMED_REASON) return 'unconfirmed';
-  if (sells_beer_now) return 'open';
+  const { open, sells_beer_now, reason, hours_source } = s.open_now;
+  if (hours_source === 'none') return 'unconfirmed';
+  // Open per default schedule (no real hours) → "suele estar abierto".
+  if (sells_beer_now) return hours_source === 'estimated' ? 'estimated' : 'open';
   // Open, but the takeaway ordinance is blocking a sale right now.
   if (open && reason.toLowerCase().includes('ordenanza')) return 'ordinance';
   return 'closed';
@@ -34,7 +33,8 @@ export const INTENT_COLOR: Record<MarkerIntent, string> = {
 
 // Marker ring = whether it can serve/sell a beer right now.
 export const STATE_RING: Record<MarkerState, string> = {
-  open: '#16a34a', // green
+  open: '#16a34a', // green — confirmed hours
+  estimated: '#4ade80', // lighter green — default schedule, "suele estar abierto"
   ordinance: '#f59e0b', // amber warning
   unconfirmed: '#cbd5e1', // light grey
   closed: '#ffffff',

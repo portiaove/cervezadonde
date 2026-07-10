@@ -19,6 +19,7 @@ const hasDistance = (s: CardStore): s is NearbyStore =>
 
 const STATE_TEXT: Record<ReturnType<typeof statusOf>, string> = {
   open: 'Puede servirte cerveza ahora',
+  estimated: 'Suele estar abierto a esta hora',
   ordinance: 'Abierto, pero no puede vender para llevar ahora',
   closed: 'Cerrado ahora',
   unconfirmed: 'Horario no confirmado',
@@ -60,6 +61,7 @@ export function StoreCard({
       <div className={`status status--${state}`}>
         <strong>{STATE_TEXT[state]}</strong>
         {state === 'open' && closesAt ? ` · hasta las ${closesAt}` : ''}
+        {state === 'estimated' && closesAt ? ` · suele cerrar a las ${closesAt}` : ''}
       </div>
 
       <div className="meta reason">{store.open_now.reason}</div>

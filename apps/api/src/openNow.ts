@@ -4,6 +4,10 @@
 // Pure functions. Europe/Madrid timezone. No DB access.
 // The ordinance window (22:00 → 09:00) and the local time arithmetic are
 // the *only* place these rules live in the codebase.
+//
+// ⚠ TZ requirement: the opening_hours library evaluates rule times against
+// the PROCESS's wall clock. The API must run with TZ=Europe/Madrid (set in
+// deploy/docker-compose.prod.yml) or every verdict shifts by 1–2 hours.
 
 import OpeningHours from 'opening_hours';
 
@@ -17,13 +21,7 @@ export const ORDINANCE = {
 } as const;
 
 export type PlaceForOpenNow = {
-  place_type:
-    | 'bar'
-    | 'supermercado'
-    | 'alimentacion'
-    | 'bodega'
-    | 'tienda_24h'
-    | 'otro';
+  place_type: 'bar' | 'supermercado' | 'alimentacion' | 'bodega' | 'tienda_24h' | 'otro';
   sells_takeaway_beer: boolean;
   opening_hours_osm: string | null;
 };
@@ -33,11 +31,29 @@ export type IsOpenResult = {
   closes_at: string | null;
 };
 
+export type HoursSource = 'osm' | 'estimated' | 'none';
+
 export type CanSellBeerResult = {
   open: boolean;
   closes_at: string | null;
   sells_beer_now: boolean;
   reason: string;
+  hours_source: HoursSource;
+};
+
+/**
+ * Typical Spanish schedules per place_type, applied ONLY when a place has no
+ * real hours — and always labelled "horario habitual (no confirmado)" in the
+ * verdict, never presented as confirmed. Standard OSM opening_hours syntax so
+ * they flow through the same parser as real data. 'otro' gets no estimate.
+ */
+export const DEFAULT_HOURS_BY_TYPE: Record<PlaceForOpenNow['place_type'], string | null> = {
+  bar: 'Mo-Th 09:00-01:00; Fr-Sa 09:00-02:00; Su 10:00-24:00',
+  supermercado: 'Mo-Sa 09:00-21:30; Su 10:00-15:00',
+  alimentacion: 'Mo-Su 10:00-22:00',
+  bodega: 'Mo-Sa 10:00-14:00,17:00-20:30',
+  tienda_24h: '24/7',
+  otro: null,
 };
 
 // --- timezone helpers ------------------------------------------------------
@@ -82,10 +98,7 @@ export function isAlcoholTakeawayProhibited(now: Date): boolean {
  *
  * Defensive: invalid strings or null hours → `{ open: false, closes_at: null }`.
  */
-export function isOpenNow(
-  openingHoursOsm: string | null,
-  now: Date,
-): IsOpenResult {
+export function isOpenNow(openingHoursOsm: string | null, now: Date): IsOpenResult {
   if (!openingHoursOsm || openingHoursOsm.trim() === '') {
     return { open: false, closes_at: null };
   }
@@ -108,33 +121,38 @@ export function isOpenNow(
 
 /**
  * Beer-availability verdict for a place at `now`. Encodes:
- * - Unknown hours → "horario no confirmado".
- * - Closed → "Cerrado".
+ * - Real OSM hours when present; otherwise the place_type's default schedule,
+ *   flagged hours_source='estimated' ("suele estar abierto/cerrado").
+ * - No hours and no default → "horario no confirmado" (hours_source='none').
  * - Bar serving on-site → not subject to the takeaway ordinance.
  * - Shop with takeaway-beer flag → subject to the ordinance.
  * - Shop without takeaway-beer flag → never sells beer.
  */
-export function canSellBeerNow(
-  place: PlaceForOpenNow,
-  now: Date,
-): CanSellBeerResult {
-  // Unknown hours — be conservative. We don't claim "open" without evidence.
-  if (!place.opening_hours_osm || place.opening_hours_osm.trim() === '') {
+export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerResult {
+  const realHours = place.opening_hours_osm?.trim() || null;
+  const hours = realHours ?? DEFAULT_HOURS_BY_TYPE[place.place_type];
+  const hours_source: HoursSource = realHours ? 'osm' : hours ? 'estimated' : 'none';
+  const estimated = hours_source === 'estimated';
+
+  // No hours and no sensible default — be conservative, don't claim anything.
+  if (!hours) {
     return {
       open: false,
       closes_at: null,
       sells_beer_now: false,
       reason: 'Horario no confirmado.',
+      hours_source,
     };
   }
 
-  const { open, closes_at } = isOpenNow(place.opening_hours_osm, now);
+  const { open, closes_at } = isOpenNow(hours, now);
   if (!open) {
     return {
       open: false,
       closes_at: null,
       sells_beer_now: false,
-      reason: 'Cerrado.',
+      reason: estimated ? 'Suele estar cerrado a esta hora (horario no confirmado).' : 'Cerrado.',
+      hours_source,
     };
   }
 
@@ -144,7 +162,10 @@ export function canSellBeerNow(
       open: true,
       closes_at,
       sells_beer_now: true,
-      reason: 'Bar abierto en horario habitual.',
+      reason: estimated
+        ? 'Suele estar abierto a esta hora (horario no confirmado).'
+        : 'Bar abierto en horario habitual.',
+      hours_source,
     };
   }
 
@@ -155,6 +176,7 @@ export function canSellBeerNow(
       closes_at,
       sells_beer_now: false,
       reason: 'No vende alcohol para llevar.',
+      hours_source,
     };
   }
 
@@ -165,6 +187,7 @@ export function canSellBeerNow(
       closes_at,
       sells_beer_now: false,
       reason: `Ordenanza municipal: no puede vender alcohol para llevar de ${ORDINANCE.label}.`,
+      hours_source,
     };
   }
 
@@ -172,6 +195,9 @@ export function canSellBeerNow(
     open: true,
     closes_at,
     sells_beer_now: true,
-    reason: 'Abierto. Puede venderte cerveza para llevar.',
+    reason: estimated
+      ? 'Suele estar abierto (horario no confirmado). Puede venderte cerveza para llevar.'
+      : 'Abierto. Puede venderte cerveza para llevar.',
+    hours_source,
   };
 }

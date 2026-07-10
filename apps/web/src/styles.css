@@ -496,6 +496,9 @@ a {
 .legend__ring--open {
   border: 2.5px solid var(--open);
 }
+.legend__ring--estimated {
+  border: 2px solid #4ade80;
+}
 .legend__ring--faded {
   border: 1.5px solid #cbd5e1;
   opacity: 0.7;
@@ -561,6 +564,10 @@ a {
 .status--open {
   background: #dcfce7;
   color: #166534;
+}
+.status--estimated {
+  background: #f0fdf4;
+  color: #15803d;
 }
 .status--ordinance {
   background: #fef3c7;

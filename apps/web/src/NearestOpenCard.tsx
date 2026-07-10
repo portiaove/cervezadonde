@@ -40,6 +40,7 @@ export function NearestOpenCard({
         <span className="nearest__meta">
           {subtitle(store)} · {formatDistance(store.distance_m)}
           {store.open_now.closes_at ? ` · hasta las ${store.open_now.closes_at}` : ''}
+          {store.open_now.hours_source === 'estimated' ? ' · horario estimado' : ''}
         </span>
       </button>
       <a

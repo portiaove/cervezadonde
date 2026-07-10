@@ -58,11 +58,20 @@ export type PlaceType = z.infer<typeof PlaceType>;
  * Server-computed open-now verdict for a place at a given instant.
  * See ADR-004 and apps/api/src/openNow.ts.
  */
+/** Where the hours behind an open-now verdict came from. */
+export const HoursSource = z.enum([
+  'osm', // real opening_hours from OSM — "confirmado"
+  'estimated', // default schedule for the place_type — "horario habitual"
+  'none', // no hours and no applicable default
+]);
+export type HoursSource = z.infer<typeof HoursSource>;
+
 export const OpenNowBlock = z.object({
   open: z.boolean(),
   closes_at: z.string().nullable(),
   sells_beer_now: z.boolean(),
   reason: z.string(),
+  hours_source: HoursSource,
 });
 export type OpenNowBlock = z.infer<typeof OpenNowBlock>;
 

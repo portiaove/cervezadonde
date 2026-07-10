@@ -240,7 +240,7 @@ export function App() {
             id="unclustered-point"
             type="circle"
             paint={{
-              'circle-radius': ['match', ['get', 'state'], 'open', 7, 5],
+              'circle-radius': ['match', ['get', 'state'], 'open', 7, 'estimated', 7, 5],
               'circle-color': [
                 'match',
                 ['get', 'intent'],
@@ -255,6 +255,8 @@ export function App() {
                 ['get', 'state'],
                 'open',
                 1,
+                'estimated',
+                0.95,
                 'ordinance',
                 0.9,
                 'unconfirmed',
@@ -266,13 +268,25 @@ export function App() {
                 ['get', 'state'],
                 'open',
                 STATE_RING.open,
+                'estimated',
+                STATE_RING.estimated,
                 'ordinance',
                 STATE_RING.ordinance,
                 'unconfirmed',
                 STATE_RING.unconfirmed,
                 STATE_RING.closed,
               ],
-              'circle-stroke-width': ['match', ['get', 'state'], 'open', 2.5, 'ordinance', 2, 1],
+              'circle-stroke-width': [
+                'match',
+                ['get', 'state'],
+                'open',
+                2.5,
+                'estimated',
+                2,
+                'ordinance',
+                2,
+                1,
+              ],
               'circle-stroke-opacity': ['match', ['get', 'state'], 'open', 1, 'closed', 0.5, 0.85],
             }}
           />

@@ -179,11 +179,15 @@ export function MoreSheet({
         <div className="legend__sep" />
         <div className="legend__row">
           <span className="legend__ring legend__ring--open" />
-          <span>Puede venderte ahora</span>
+          <span>Puede venderte ahora (horario confirmado)</span>
+        </div>
+        <div className="legend__row">
+          <span className="legend__ring legend__ring--estimated" />
+          <span>Suele estar abierto a esta hora (estimado)</span>
         </div>
         <div className="legend__row">
           <span className="legend__ring legend__ring--faded" />
-          <span>Cerrado o con horario no confirmado</span>
+          <span>Cerrado o sin datos</span>
         </div>
 
         <div className="sheet__title">Datos</div>
