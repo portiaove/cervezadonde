@@ -1,6 +1,6 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
 import { closeSql } from '@cervezadonde/db';
+import cors from '@fastify/cors';
+import Fastify from 'fastify';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerStoresRoutes } from './routes/stores.js';
 

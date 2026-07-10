@@ -1,5 +1,5 @@
-import type { FastifyInstance } from 'fastify';
 import { getSql } from '@cervezadonde/db';
+import type { FastifyInstance } from 'fastify';
 
 export async function registerHealthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/health', async () => ({ ok: true }));
