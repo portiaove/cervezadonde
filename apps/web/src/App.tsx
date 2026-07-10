@@ -23,23 +23,24 @@ const MADRID_CENTER = { lat: 40.4168, lng: -3.7038 };
 // it, individual coloured markers (the product's core view).
 const CLUSTER_MAX_ZOOM = 11;
 
-// Dev tile source: OpenStreetMap raster tiles. Free, no API key.
+// Muted basemap (Carto Positron raster, free with attribution): no built-in
+// POI icons, so our coloured markers are the only "content" on the map —
+// the standard OSM style's shop symbols competed with them. @2x tiles at
+// tileSize 256 render crisp on retina screens.
 const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    osm: {
+    basemap: {
       type: 'raster',
-      tiles: [
-        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      ],
+      tiles: ['a', 'b', 'c', 'd'].map(
+        (s) => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`,
+      ),
       tileSize: 256,
       maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© OpenStreetMap contributors © CARTO',
     },
   },
-  layers: [{ id: 'osm-tiles', type: 'raster', source: 'osm' }],
+  layers: [{ id: 'basemap-tiles', type: 'raster', source: 'basemap' }],
 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -188,12 +189,31 @@ export function App() {
 
   const onMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
-      const feature = e.features?.[0];
-      if (!feature) {
+      // Generous tap target: an 8 px circle is un-tappable on mobile, so look
+      // for markers within a ±12 px box around the tap and take the closest.
+      const map = mapRef.current;
+      if (!map) return;
+      const PAD = 12;
+      const feats = map.queryRenderedFeatures(
+        [
+          [e.point.x - PAD, e.point.y - PAD],
+          [e.point.x + PAD, e.point.y + PAD],
+        ],
+        { layers: ['unclustered-point'] },
+      );
+      if (feats.length === 0) {
         setSelected(null);
         return;
       }
-      const id = feature.properties?.id as string | undefined;
+      const nearest = feats.reduce((best, f) => {
+        const dist = (f2: typeof f) => {
+          const [lng, lat] = (f2.geometry as GeoJSON.Point).coordinates as [number, number];
+          const p = map.project([lng, lat]);
+          return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+        };
+        return dist(f) < dist(best) ? f : best;
+      });
+      const id = nearest.properties?.id as string | undefined;
       const match = id ? points.find((s) => s.id === id) : null;
       setSelected(match ?? null);
     },
@@ -240,7 +260,7 @@ export function App() {
             id="unclustered-point"
             type="circle"
             paint={{
-              'circle-radius': ['match', ['get', 'state'], 'open', 7, 'estimated', 7, 5],
+              'circle-radius': ['match', ['get', 'state'], 'open', 8, 'estimated', 8, 6],
               'circle-color': [
                 'match',
                 ['get', 'intent'],
@@ -280,9 +300,9 @@ export function App() {
                 'match',
                 ['get', 'state'],
                 'open',
-                2.5,
+                3,
                 'estimated',
-                2,
+                2.5,
                 'ordinance',
                 2,
                 1,
