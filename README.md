@@ -118,7 +118,7 @@ first deploy, weekly refresh) in [`docs/13-deploy.md`](./docs/13-deploy.md).
 
 ## Source-name conventions
 
-- `madrid_censo` — real Censo data (canonical).
+- `censo_madrid` — real Censo data (canonical).
 - `madrid_sample_fixture` — bundled fixture.
 - `osm_only` — OSM-only places without a Censo match (parked for review).
 

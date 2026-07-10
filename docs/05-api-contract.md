@@ -61,7 +61,7 @@ Response shape:
         "sells_beer_now": true,
         "reason": "Bar abierto en horario habitual."
       },
-      "sources": ["madrid_censo", "osm"]
+      "sources": ["censo_madrid", "osm"]
     }
   ]
 }
@@ -112,7 +112,7 @@ Supported feedback types:
 Protected by simple admin token.
 
 - `GET /admin/import-runs` — list ingestion runs.
-- `POST /admin/import-runs/manual` — trigger manual ingestion (`madrid_censo` or `osm`).
+- `POST /admin/import-runs/manual` — trigger manual ingestion (`censo_madrid` or `osm`).
 - `GET /admin/feedback` — moderation queue.
 - `POST /admin/stores/:id/overrides` — create/update manual override.
 - `GET /admin/chain-patterns` / `POST /admin/chain-patterns` — manage chain list.

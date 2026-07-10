@@ -30,9 +30,9 @@ relative to the product, batch is simpler than request-time fetching.
 7. **Transform coords** EPSG:25830 → 4326 in Postgres (`ST_Transform`).
 8. **Score** via `scoring/v2.ts`. Computes `place_type`,
    `sells_takeaway_beer`, `sells_onsite_beer`, `confidence_*`, `badges`.
-9. **Upsert** into `stores` under `source_name='madrid_censo'`. Conflict
+9. **Upsert** into `stores` under `source_name='censo_madrid'`. Conflict
    on `(source_name, source_local_id)`. Refresh `store_activities`.
-10. **Soft-deactivate**: rows with `source_name='madrid_censo'` and a
+10. **Soft-deactivate**: rows with `source_name='censo_madrid'` and a
     `last_import_run_id` other than the current one get
     `confidence_level='excluded'` + `'posible_cerrado'` badge.
     Score and place_type preserved for traceability.

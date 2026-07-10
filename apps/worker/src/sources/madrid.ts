@@ -1,7 +1,9 @@
 // Constants for the Censo de Locales y Actividades dataset.
 // Schema PDF: 200085-9-censo-locales.pdf (Ayuntamiento de Madrid, mar/2022).
 
-export const MADRID_SOURCE_NAME = 'madrid_censo';
+// Official censos follow the censo_<city> scheme so the OSM enrichment step
+// can match any of them with source_name LIKE 'censo_%' (ADR-007).
+export const MADRID_SOURCE_NAME = 'censo_madrid';
 
 export const MADRID_CSV_ENCODING = 'utf-8';
 // NB: the schema PDF (mar/2022) says "|", but the actual file uses ";".

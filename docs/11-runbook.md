@@ -64,7 +64,7 @@ SELECT source_name, count(*) FROM stores GROUP BY 1 ORDER BY 1;
 
 ```sql
 SELECT confidence_level, count(*) FROM stores
-WHERE source_name='madrid_censo'
+WHERE source_name='censo_madrid'
 GROUP BY 1 ORDER BY 1;
 ```
 
@@ -75,7 +75,7 @@ hard exclusions remain (closed, invalid).
 
 ```sql
 SELECT place_type, count(*) FROM stores
-WHERE source_name='madrid_censo'
+WHERE source_name='censo_madrid'
 GROUP BY 1 ORDER BY 2 DESC;
 ```
 
@@ -88,7 +88,7 @@ SELECT
   count(*) FILTER (WHERE opening_hours_osm IS NOT NULL) AS with_hours,
   count(*) AS total,
   round(100.0 * count(*) FILTER (WHERE opening_hours_osm IS NOT NULL) / count(*), 1) AS pct
-FROM stores WHERE source_name='madrid_censo';
+FROM stores WHERE source_name='censo_madrid';
 ```
 
 Target: > 30% coverage after the first OSM run, rising over time.
@@ -115,7 +115,7 @@ FROM import_runs ORDER BY id DESC LIMIT 5;
 ```sql
 SELECT name, place_type, confidence_score, confidence_level, badges
 FROM stores
-WHERE source_name='madrid_censo' AND confidence_level <> 'excluded'
+WHERE source_name='censo_madrid' AND confidence_level <> 'excluded'
 ORDER BY geom <-> ST_SetSRID(ST_MakePoint(-3.7038, 40.4168), 4326)
 LIMIT 10;
 ```
@@ -160,7 +160,7 @@ different free tile provider in `apps/web/src/App.tsx`.
 ## Source-name conventions
 
 - `madrid_sample_fixture` — bundled beer-source fixture (25–40 rows).
-- `madrid_censo` — real Censo data.
+- `censo_madrid` — real Censo data.
 - `osm_only` — OSM-only places without a Censo match (v1.1+).
 
 Soft-deactivate only ever touches the source it ran for.
@@ -176,7 +176,7 @@ Both are matched by `data/raw/` in `.gitignore`.
 
 ## Soft-deactivation semantics
 
-When `ingest:madrid` finishes, any `madrid_censo` row whose
+When `ingest:madrid` finishes, any `censo_madrid` row whose
 `last_import_run_id` is not the current one gets:
 
 - `confidence_level='excluded'` (API hides by default).

@@ -39,15 +39,15 @@ heavy to render.
 
 ## 2. Enrich with official censos where available
 
-We already do this for Madrid: `ingest:madrid` → `source_name='madrid_censo'`,
+We already do this for Madrid: `ingest:madrid` → `source_name='censo_madrid'`,
 then `enrichWithCenso` merges official fields onto the matched OSM store and
 flags `oficial` (see [ADR-007](../decisions/ADR-007-national-osm-primary.md)).
 
 To extend to other cities:
-- **Generalise the merge.** `enrichWithCenso` (in
-  `apps/worker/src/ingest-osm-canonical.ts`) hardcodes
-  `source_name = 'madrid_censo'`. Make it match against **any** official source
-  (e.g. `source_name LIKE 'censo_%'`).
+- ~~**Generalise the merge.**~~ **Done**: `enrichWithCenso` (in
+  `apps/worker/src/ingest-osm-canonical.ts`) matches any official source via
+  `source_name LIKE 'censo_%'` (migration 1700000000006 renamed
+  `madrid_censo` → `censo_madrid`).
 - **One adapter per city** (each open-data portal has its own schema): download
   + parse + map to the `stores` shape under `source_name='censo_<city>'`, same
   as `ingest-madrid.ts`. Candidates with usable open data: **Barcelona**

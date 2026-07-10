@@ -76,7 +76,7 @@ flowchart LR
   RG --> CLASS
   CLASS --> STORES[("stores<br/>source_name='osm'<br/>= CANONICAL")]
 
-  MAD --> CENSOROWS[("stores<br/>source_name='madrid_censo'")]
+  MAD --> CENSOROWS[("stores<br/>source_name='censo_madrid'")]
   CENSOROWS -.->|"spatial merge:<br/>flag 'oficial' +<br/>copy official fields +<br/>hide duplicates"| STORES
 
   STORES -.->|push-data| PROD[("VPS PostGIS")]
@@ -136,7 +136,7 @@ The national path (`ingest:osm:pbf`): download a Geofabrik extract →
 erDiagram
   STORES {
     bigint id PK
-    text source_name "osm | madrid_censo | fixture"
+    text source_name "osm | censo_madrid | fixture"
     text source_local_id "e.g. n123"
     text name
     geometry geom "Point 4326 (GIST index)"

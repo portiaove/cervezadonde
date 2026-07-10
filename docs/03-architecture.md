@@ -70,7 +70,7 @@ Stack: Node 20 + TypeScript + Fastify + Zod + postgres-js.
 - COPY into staging.
 - Aggregate by `id_local`, filter to target epigraphs (doc 02).
 - Score via `scoring/v2.ts`.
-- Upsert into `stores` under `source_name='madrid_censo'`.
+- Upsert into `stores` under `source_name='censo_madrid'`.
 - Soft-deactivate previously-seen-but-missing rows.
 
 ### OSM Enrichment Worker
