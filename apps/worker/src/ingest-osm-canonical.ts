@@ -188,12 +188,13 @@ async function bulkUpsertStores(
 }
 
 /**
- * Merge the Madrid Censo into the OSM canonical stores (ADR-007). For each OSM
- * store, find its nearest active Censo record within CONFIRM_RADIUS_M (a
- * GIST-indexed spatial join) and, in one statement:
- *  - copy the Censo's official fields (address/district/neighbourhood/status)
+ * Merge official municipal censos into the OSM canonical stores (ADR-007).
+ * Matches ANY source named censo_<city> (Madrid today; Barcelona/Valencia/…
+ * as adapters land). For each OSM store, find its nearest active censo record
+ * within CONFIRM_RADIUS_M (a GIST-indexed spatial join) and, in one statement:
+ *  - copy the censo's official fields (address/district/neighbourhood/status)
  *    onto the OSM store and flag it `oficial`;
- *  - exclude the now-duplicated Censo row (data preserved, just hidden).
+ *  - exclude the now-duplicated censo row (data preserved, just hidden).
  * Censo records with no OSM match stay active — they still add places OSM lacks.
  */
 async function enrichWithCenso(
@@ -207,9 +208,14 @@ async function enrichWithCenso(
         c.neighbourhood AS c_neighbourhood, c.official_status AS c_official
       FROM stores o
       CROSS JOIN LATERAL (
+        -- Nearest censo row REGARDLESS of confidence_level: matching only
+        -- active rows makes re-runs non-deterministic — a store's true dupe is
+        -- already excluded, so each run would consume the next-nearest censo
+        -- neighbour (a different business) and hide it. Matching the physical
+        -- nearest keeps the pairing stable, so re-runs re-affirm, not drift.
         SELECT c.id, c.address, c.district, c.neighbourhood, c.official_status
         FROM stores c
-        WHERE c.source_name = 'madrid_censo' AND c.confidence_level <> 'excluded'
+        WHERE c.source_name LIKE 'censo_%'
           AND ST_DWithin(c.geom::geography, o.geom::geography, ${CONFIRM_RADIUS_M})
         ORDER BY c.geom::geography <-> o.geom::geography
         LIMIT 1
