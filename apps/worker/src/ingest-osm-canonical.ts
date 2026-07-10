@@ -217,7 +217,9 @@ async function enrichWithCenso(
         FROM stores c
         WHERE c.source_name LIKE 'censo_%'
           AND ST_DWithin(c.geom::geography, o.geom::geography, ${CONFIRM_RADIUS_M})
-        ORDER BY c.geom::geography <-> o.geom::geography
+        -- c.id tiebreak: equidistant censo rows (same building) would otherwise
+        -- be picked arbitrarily, leaking a few new exclusions on every re-run.
+        ORDER BY c.geom::geography <-> o.geom::geography, c.id
         LIMIT 1
       ) c
       WHERE o.source_name = ${OSM_SOURCE_NAME}
