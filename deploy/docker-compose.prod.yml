@@ -32,6 +32,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       WEB_ORIGIN: ${WEB_ORIGIN}
       LOG_LEVEL: info
+      # The opening_hours evaluator reads the process wall clock (see
+      # apps/api/src/openNow.ts). Without this, hours shift by 1-2h in UTC.
+      TZ: Europe/Madrid
     depends_on:
       postgres:
         condition: service_healthy
