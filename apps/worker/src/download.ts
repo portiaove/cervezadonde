@@ -91,10 +91,7 @@ export async function downloadIfNeeded(opts: {
     },
   });
 
-  await pipeline(
-    Readable.fromWeb(res.body.pipeThrough(tap) as never),
-    createWriteStream(dest),
-  );
+  await pipeline(Readable.fromWeb(res.body.pipeThrough(tap) as never), createWriteStream(dest));
 
   log(`downloaded ${(size / 1024 / 1024).toFixed(1)} MB`);
   return { path: dest, hash: hash.digest('hex'), size, fromCache: false };

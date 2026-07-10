@@ -1,20 +1,20 @@
 import { createReadStream } from 'node:fs';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { getSql, type Sql } from '@cervezadonde/db';
+import { type Sql, getSql } from '@cervezadonde/db';
 import { downloadIfNeeded } from './download.js';
+import { TARGET_EPIGRAPH_CODES_V2, isTargetEpigraphV2 } from './scoring/epigraphs.js';
+import { scoreCandidate } from './scoring/v2.js';
 import {
   MADRID_ACTIVIDADES_COLUMNS,
-  MADRID_CSV_DELIMITER,
   MADRID_COORDS_SRID,
+  MADRID_CSV_DELIMITER,
   MADRID_SOURCE_NAME,
   SITUACION,
   TIPO_ACCESO,
   getCacheDir,
   getMadridUrls,
 } from './sources/madrid.js';
-import { TARGET_EPIGRAPH_CODES_V2, isTargetEpigraphV2 } from './scoring/epigraphs.js';
-import { scoreCandidate } from './scoring/v2.js';
 
 const MADRID_BBOX = {
   xMin: 420000,
@@ -74,12 +74,7 @@ const bomStripper = (): Transform => {
     transform(chunk: Buffer, _enc, cb) {
       if (!firstChunkSeen) {
         firstChunkSeen = true;
-        if (
-          chunk.length >= 3 &&
-          chunk[0] === 0xef &&
-          chunk[1] === 0xbb &&
-          chunk[2] === 0xbf
-        ) {
+        if (chunk.length >= 3 && chunk[0] === 0xef && chunk[1] === 0xbb && chunk[2] === 0xbf) {
           cb(null, chunk.subarray(3));
           return;
         }
@@ -277,10 +272,7 @@ async function upsertCandidate(
   return { inserted, level: scored.level };
 }
 
-async function softDeactivateMissing(
-  sql: Sql,
-  importRunId: number,
-): Promise<number> {
+async function softDeactivateMissing(sql: Sql, importRunId: number): Promise<number> {
   const result = await sql<{ count: number }[]>`
     WITH updated AS (
       UPDATE stores
@@ -332,7 +324,9 @@ export async function ingestMadrid(opts: {
     log,
   });
 
-  log(`source file: ${dl.path} (${dl.fromCache ? 'cache' : 'downloaded'}, ${(dl.size / 1024 / 1024).toFixed(1)} MB)`);
+  log(
+    `source file: ${dl.path} (${dl.fromCache ? 'cache' : 'downloaded'}, ${(dl.size / 1024 / 1024).toFixed(1)} MB)`,
+  );
 
   const [run] = await sql<{ id: number }[]>`
     INSERT INTO import_runs (source_name, source_url, status, file_hash)
