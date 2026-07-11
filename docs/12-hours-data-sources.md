@@ -94,6 +94,24 @@ Provenance stays layered end-to-end (`official_madrid` → `osm` → `web` →
 `community`), attribution preserved per source (ODbL for OSM, Overture/FSQ
 notices, "según la web del local" for crawled hours).
 
+## Measured: the schema.org crawl (2026-07-11)
+
+The M7 crawler ran over the full national queue and the yield is far below
+what this document hoped:
+
+- Queue: 11,173 stores with a website and no OSM hours → 9,527 unique URLs
+  after skipping brand homepages (URL shared by >3 stores) and social hosts.
+- 6,483 reachable (≈30% link rot in OSM website tags), 162 robots-blocked.
+- **281 sites (4.3% of reachable) published parseable schema.org hours** →
+  **290 stores gained confirmed hours**. Zero invalid strings stored (every
+  result is validated with the API's own opening_hours parser).
+
+Conclusion: schema.org adoption among small Spanish hospitality sites is
+minimal — the crawler is worth keeping (incremental, polite and free, and
+it re-runs with the weekly refresh), but it is a trickle, not the coverage
+jump. **The default-hours heuristic carries the map's usefulness for now,
+and M8 (community feedback → OSM) is the real path to confirmed coverage.**
+
 ## Sources
 
 - Overture Places guide: https://docs.overturemaps.org/guides/places/

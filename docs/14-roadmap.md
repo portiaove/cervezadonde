@@ -123,9 +123,11 @@ The core product gap: only ~14% of stores have hours, so most of the map reads
    surfaced as `open_now.hours_source: osm|estimated|none` and a distinct
    light-green "suele estar abierto" state in the UI. Never claims
    "confirmado". ⚠ The API container must run with TZ=Europe/Madrid.
-2. **Website `schema.org/OpeningHoursSpecification` crawler** — the real
-   coverage jump. The work queue is ready: `stores.website` (11,173 stores
-   with a website and no hours). Widen later with Overture/FSQ.
+2. ~~**Website `schema.org` crawler**~~ **DONE — and measured** (`pnpm
+   worker:crawl:hours`, incremental, polite): 9,527 URLs crawled, 281 sites
+   (4.3% of reachable) had parseable hours → 290 stores confirmed. Far below
+   the hoped-for jump (see docs/12 "Measured"); keep it in the weekly refresh
+   but the next real move is the community feedback loop (item 3).
 3. **Community feedback loop** → contribute corrections back to OSM.
 4. Optional paid API (TomTom/HERE) as a coverage floor.
 
