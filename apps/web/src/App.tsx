@@ -13,6 +13,7 @@ import MapGL, {
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BottomBar, MapStatus, MoreSheet, TimeChip, type UiFilters } from './Controls.js';
 import { NearestOpenCard } from './NearestOpenCard.js';
+import { SearchBox, type SearchPick } from './SearchBox.js';
 import { StoreCard } from './StoreCard.js';
 import { type Filters, fetchClusters, fetchMap, fetchNearby } from './api.js';
 import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
@@ -187,6 +188,27 @@ export function App() {
     mapRef.current?.flyTo({ center: [s.lng, s.lat], zoom: 16 });
   }, []);
 
+  const searchBias = useCallback(() => {
+    const c = mapRef.current?.getCenter();
+    return c ? { lng: c.lng, lat: c.lat } : null;
+  }, []);
+
+  const goToSearchPick = useCallback((pick: SearchPick) => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (pick.bbox) {
+      map.fitBounds(
+        [
+          [pick.bbox[0], pick.bbox[1]],
+          [pick.bbox[2], pick.bbox[3]],
+        ],
+        { padding: 60, maxZoom: 17, duration: 700 },
+      );
+    } else {
+      map.flyTo({ center: [pick.lng, pick.lat], zoom: 16, duration: 700 });
+    }
+  }, []);
+
   const onMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
       // Generous tap target: an 8 px circle is un-tappable on mobile, so look
@@ -349,6 +371,8 @@ export function App() {
       <div className="top-left">
         <TimeChip now={now} takeawayAllowed={ordinance?.takeaway_allowed ?? null} />
       </div>
+
+      <SearchBox getBias={searchBias} onPick={goToSearchPick} />
 
       <MapStatus loading={loading} empty={empty} />
 
