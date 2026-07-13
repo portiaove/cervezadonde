@@ -115,6 +115,11 @@ describe('isOpenNow', () => {
     expect(r.open).toBe(true);
     expect(r.closes_at).toBe('02:00');
   });
+  it('a PH-prefixed 24h string (typical of fuel stations) evaluates open', () => {
+    // "PH,..." throws without a country context — must not be swallowed as closed.
+    expect(isOpenNow('PH,Mo-Su 00:00-24:00', madridAt(4, 30)).open).toBe(true);
+    expect(isOpenNow('PH,Mo-Su 00:00-24:00', madridAt(23, 0)).open).toBe(true);
+  });
 });
 
 describe('canSellBeerNow — null hours fall back to the default schedule', () => {

@@ -110,15 +110,25 @@ export function isAlcoholTakeawayProhibited(now: Date): boolean {
  *
  * Defensive: invalid strings or null hours → `{ open: false, closes_at: null }`.
  */
+// Public/school-holiday selectors (PH/SH) make the opening_hours parser throw
+// unless it's given a country context. Retrying with Spain lets common strings
+// like "PH,Mo-Su 00:00-24:00" (typical of 24h fuel stations) evaluate instead
+// of being swallowed as "closed". lat/lon = Madrid centroid (only affects the
+// rare sunrise/sunset-based rules; PH resolves from the country code).
+const ES_NOMINATIM = { address: { country_code: 'es' }, lat: 40.4168, lon: -3.7038 };
+
 export function isOpenNow(openingHoursOsm: string | null, now: Date): IsOpenResult {
   if (!openingHoursOsm || openingHoursOsm.trim() === '') {
     return { open: false, closes_at: null };
   }
+  const conf = { tag_key: 'opening_hours', locale: 'es' } as never;
   try {
-    const oh = new OpeningHours(openingHoursOsm, undefined, {
-      tag_key: 'opening_hours',
-      locale: 'es',
-    } as never);
+    let oh: OpeningHours;
+    try {
+      oh = new OpeningHours(openingHoursOsm, undefined, conf);
+    } catch {
+      oh = new OpeningHours(openingHoursOsm, ES_NOMINATIM as never, conf);
+    }
     const open = oh.getState(now);
     if (!open) return { open: false, closes_at: null };
     const nextChange = oh.getNextChange(now) as Date | undefined;
