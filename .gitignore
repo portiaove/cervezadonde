@@ -23,6 +23,12 @@ logs/
 npm-debug.log*
 pnpm-debug.log*
 
+# analytics (GoAccess) — generated on the VPS, never committed
+report.html
+deploy/web-analytics/
+deploy/geoip/
+*.mmdb
+
 # editor / OS
 .DS_Store
 Thumbs.db

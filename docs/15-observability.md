@@ -69,9 +69,15 @@ IP geolocation is weak (ISP/carrier hubs). The strong signal is the
 **coordinates in your own API requests** — `/api/stores/nearby?lat=..&lng=..`,
 `/api/stores/map`, `/api/stores/clusters`. A cluster of requests over Málaga is
 your cue to add the Málaga censo. GoAccess lists top URLs but doesn't bin
-coordinates into regions; `scripts/top-areas.*` (a small log-parser, TODO) does
-that. The street-search *text* goes to Photon (external) so it isn't logged; the
-map moving to that area is, so you still capture the area.
+coordinates into regions; **`scripts/top-areas.py`** does — it reads the same
+Caddy log and prints a "top searched areas" table by nearest Spanish metro:
+
+```bash
+python3 scripts/top-areas.py    # defaults to the deploy access.log (+ rolled siblings)
+```
+
+The street-search *text* goes to Photon (external) so it isn't logged; the map
+moving to that area is, so you still capture the area.
 
 ### Setup (on the VPS, once the logging config above is deployed)
 
