@@ -79,51 +79,66 @@ python3 scripts/top-areas.py    # defaults to the deploy access.log (+ rolled si
 The street-search *text* goes to Photon (external) so it isn't logged; the map
 moving to that area is, so you still capture the area.
 
-### Setup (on the VPS, once the logging config above is deployed)
+### One command: `scripts/analytics.sh`
+
+Install GoAccess once, then the whole picture is a single command — no juggling
+flags, paths, or the GeoIP download:
 
 ```bash
-apt-get update && apt-get install -y goaccess
-mkdir -p /root/cervezadonde/deploy/web-analytics
+apt-get install -y goaccess          # once
+bash scripts/analytics.sh            # anytime, on the VPS
 ```
 
-Generate a report on demand (and via a daily cron). `--anonymize-ip` for
-privacy; `--log-format=CADDY` parses Caddy's JSON:
+`analytics.sh` consolidates everything: it (1) fetches the free GeoIP DB if
+missing, (2) regenerates the GoAccess HTML report — **crawlers ignored** so it
+reflects humans, not the scanner noise, and IPs anonymised — and (3) prints the
+**top searched areas** table (the censo signal) right in the terminal. One run =
+the product signal immediately + a refreshed full report.
+
+Keep it fresh automatically with a daily cron (`crontab -e`):
+
+```
+30 4 * * * cd /root/cervezadonde && bash scripts/analytics.sh >/dev/null 2>&1
+```
+
+**Retention.** The report covers whatever Caddy still retains (`roll_size` ×
+`roll_keep` in the Caddyfile — bump `roll_keep` for a longer window; disk is
+40 GB). For long-term aggregates that survive log deletion, switch GoAccess to
+persistent mode (`--persist --restore --db-path=…`, processing each rotated file
+once). Start simple.
+
+### Viewing the full HTML report
+
+Quick and dependency-free:
 
 ```bash
-goaccess /root/cervezadonde/deploy/logs/caddy/access.log \
-  --log-format=CADDY --anonymize-ip \
-  -o /root/cervezadonde/deploy/web-analytics/report.html
+scp root@cervezadonde.es:/root/cervezadonde/deploy/web-analytics/report.html .
 ```
 
-Cron it daily (`crontab -e`):
+Nicer (a private URL, no scp) — serve it behind basic auth. **Set the hash
+first, then deploy the route**, or Caddy could start with an empty credential:
 
-```
-30 4 * * * goaccess /root/cervezadonde/deploy/logs/caddy/access.log --log-format=CADDY --anonymize-ip -o /root/cervezadonde/deploy/web-analytics/report.html 2>/dev/null
-```
+1. Generate a hash and add it to `deploy/.env.prod`:
+   ```bash
+   docker exec cervezadonde-caddy caddy hash-password --plaintext 'YOUR_PASSWORD'
+   # deploy/.env.prod:  ANALYTICS_HASH='<the $2a$… hash>'
+   ```
+2. Add to the Caddyfile site block + mount the dir on the caddy service, then
+   redeploy:
+   ```
+   handle_path /analytics* {
+       basic_auth { juan {$ANALYTICS_HASH} }
+       root * /srv/analytics
+       file_server browse
+   }
+   ```
+   ```yaml
+   # caddy service: pass the env + mount the report dir
+   environment: { ANALYTICS_HASH: ${ANALYTICS_HASH} }
+   volumes:     [ "./web-analytics:/srv/analytics:ro" ]
+   ```
 
-**Retention.** Simple mode (recommended to start): the report covers whatever
-Caddy still retains (`roll_size` × `roll_keep` in the Caddyfile — bump
-`roll_keep` for a longer window; disk is 40 GB). For **long-term aggregates that
-survive log deletion**, switch to persistent mode (`--persist --restore
---db-path=/root/goaccess-db`) — process each *rotated* file once to avoid
-double-counting. Start simple; upgrade only if you want history beyond the log
-window.
-
-### View it privately (password-protected)
-
-Serve the report behind basic auth by adding to the `Caddyfile` site block
-(generate the hash with `docker exec cervezadonde-caddy caddy hash-password`):
-
-```
-handle /analytics* {
-    basic_auth { juan <BCRYPT_HASH> }
-    root * /srv/analytics
-    file_server
-}
-```
-
-and mount `./web-analytics:/srv/analytics:ro` on the caddy service. Never expose
-analytics publicly.
+Then browse `https://cervezadonde.es/analytics`. Never expose analytics without auth.
 
 ---
 
