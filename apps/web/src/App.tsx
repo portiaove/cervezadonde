@@ -15,7 +15,14 @@ import { BottomBar, MapStatus, MoreSheet, TimeChip, type UiFilters } from './Con
 import { NearestOpenCard } from './NearestOpenCard.js';
 import { SearchBox, type SearchPick } from './SearchBox.js';
 import { StoreCard } from './StoreCard.js';
-import { type Filters, fetchClusters, fetchMap, fetchNearby } from './api.js';
+import {
+  type Filters,
+  type MetaResponse,
+  fetchClusters,
+  fetchMap,
+  fetchMeta,
+  fetchNearby,
+} from './api.js';
 import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
 
 const MADRID_CENTER = { lat: 40.4168, lng: -3.7038 };
@@ -85,6 +92,7 @@ export function App() {
   const [nearestLoading, setNearestLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [meta, setMeta] = useState<MetaResponse | null>(null);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
@@ -139,6 +147,13 @@ export function App() {
     } finally {
       setNearestLoading(false);
     }
+  }, []);
+
+  // Dataset freshness + size, fetched once (shown in the "Datos" sheet).
+  useEffect(() => {
+    fetchMeta()
+      .then(setMeta)
+      .catch(() => setMeta(null));
   }, []);
 
   // Re-query whenever filters change (viewport + nearest).
@@ -391,7 +406,12 @@ export function App() {
       </div>
 
       {sheetOpen && (
-        <MoreSheet filters={filters} onChange={setFilters} onClose={() => setSheetOpen(false)} />
+        <MoreSheet
+          filters={filters}
+          onChange={setFilters}
+          onClose={() => setSheetOpen(false)}
+          meta={meta}
+        />
       )}
 
       {selected && <StoreCard store={selected} onClose={() => setSelected(null)} />}

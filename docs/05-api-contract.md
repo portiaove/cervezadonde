@@ -4,15 +4,38 @@
 
 - Keep the API small.
 - Optimise for nearby + open-now.
-- Compute open-now server-side from `opening_hours_osm` + current
+- Compute open-now server-side, resolving hours in order
+  `opening_hours_osm` → `opening_hours_web` → estimated defaults per
+  `place_type` (`open_now.hours_source` records which), against the current
   Europe/Madrid time + the Madrid alcohol ordinance (ADR-004).
 - Return enough data for fast map rendering, full provenance only in details.
+
+> Response examples below are indicative; the authoritative shapes are the Zod
+> schemas in `packages/shared`. Endpoints marked **Planned** are design targets,
+> not yet implemented.
 
 ## Public endpoints
 
 ### GET `/health`
 
-Returns API status. Companion: `/health/db` confirms PostGIS connectivity.
+Returns API status (`{"ok":true}`, DB-free — cheap enough for an uptime probe).
+Companion: `/health/db` confirms PostGIS connectivity.
+
+### GET `/meta`
+
+Dataset metadata for the freshness display + sanity checks:
+
+```json
+{
+  "data_updated_at": "2026-07-13T12:21:34.347Z",
+  "active_stores": 176849,
+  "stores_with_hours": 22641
+}
+```
+
+`data_updated_at` is the most recent ingest timestamp (`GREATEST(MAX(
+last_seen_osm_at), MAX(last_seen_in_official_source_at))`); the counts are
+active (non-`excluded`) stores and those with real hours.
 
 ### GET `/stores/nearby`
 
@@ -69,12 +92,21 @@ Response shape:
 
 ### GET `/stores/map`
 
-Returns stores inside map bounds for cluster rendering. Same filters as
+Returns individual stores inside map bounds (zoomed-in view). Same filters as
 `/nearby`. Trimmed payload — no `open_now.reason`, no `address`.
 
-Params: `north`, `south`, `east`, `west`, `zoom` plus the nearby filters.
+Params: `north`, `south`, `east`, `west` (+ `limit`) plus the nearby filters.
 
-### GET `/stores/:id`
+### GET `/stores/clusters`
+
+Server-side grid aggregation for the zoomed-out view (national scale). Returns
+`{ lng, lat, count }` per grid cell so the map can render count bubbles instead
+of ~177k points. `open_now` cannot be aggregated, so cluster counts ignore it.
+
+Params: `north`, `south`, `east`, `west`, `cell` (cell size in degrees) plus the
+nearby filters.
+
+### GET `/stores/:id` — **Planned**
 
 Full detail. Includes:
 
@@ -85,9 +117,10 @@ Full detail. Includes:
 - Recent community feedback summary.
 - `last_seen_in_official_source_at`, `last_seen_osm_at`.
 
-### POST `/stores/:id/feedback`
+### POST `/stores/:id/feedback` — **Planned**
 
-Anonymous correction.
+Anonymous correction. This is the community feedback loop (roadmap §5.3) — the
+next real step for hours coverage.
 
 Body:
 
@@ -107,7 +140,7 @@ Supported feedback types:
 - `opens_late`, `is_24h`
 - `not_a_bar`, `not_a_shop`, `wrong_location`
 
-## Admin endpoints
+## Admin endpoints — **Planned**
 
 Protected by simple admin token.
 

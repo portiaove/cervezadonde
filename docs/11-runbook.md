@@ -4,7 +4,23 @@ Operational reference for refreshing data, verifying ingest, and
 troubleshooting. Pair with `06-ingestion-pipeline.md` (the *what*) and
 `07-scoring-classification.md` (the *how* of scoring).
 
-## Daily refresh
+## The weekly routine (production)
+
+The whole pipeline + deploy is one scheduled script (see
+[`13-deploy.md`](./13-deploy.md) §2):
+
+```powershell
+.\scripts\refresh-all.ps1
+```
+
+It runs, in order: Madrid Censo → Barcelona Censo → all-Spain OSM (which
+re-applies the censo enrichment) → website hours crawl → push to prod. Each run
+is logged to `logs\refresh-history.csv`. After it finishes, confirm prod
+freshness at `https://cervezadonde.es/api/meta` (`data_updated_at` + counts).
+
+The individual stages below are still runnable on their own for debugging.
+
+### Madrid Censo (`ingest:madrid`)
 
 ```powershell
 pnpm worker:ingest:madrid
@@ -20,14 +36,16 @@ Idempotent — always safe to re-run. Expected duration:
 
 Force a re-download with `--fresh` if you suspect the cache is stale.
 
-## Weekly OSM refresh (Phase 1 / M6g)
+### All-Spain OSM (`ingest:osm:pbf`)
 
 ```powershell
-pnpm worker:ingest:osm
+pnpm worker:ingest:osm:pbf -r spain
 ```
 
-Fetches Madrid bbox from Overpass, matches to `stores`, materialises
-`opening_hours_osm`. Cheap enough to run manually after a scorer change.
+Downloads the Geofabrik Spain extract (~1.4 GB), filters bars + shops with
+osmium (in Docker), classifies, upserts as canonical `osm` stores, and runs the
+censo enrichment (flags matched stores `oficial`, hides duplicates). ~3 minutes
+from cache. `--fresh` re-downloads the extract (it updates ~monthly).
 
 ## Madrid Censo pipeline stages
 
@@ -159,20 +177,22 @@ different free tile provider in `apps/web/src/App.tsx`.
 
 ## Source-name conventions
 
+- `osm` — OpenStreetMap canonical stores (the national base, ADR-007).
+- `censo_madrid` / `censo_barcelona` — official municipal censos; matched OSM
+  stores flagged `oficial`, duplicates hidden (`excluded`).
 - `madrid_sample_fixture` — bundled beer-source fixture (25–40 rows).
-- `censo_madrid` — real Censo data.
-- `osm_only` — OSM-only places without a Censo match (v1.1+).
 
 Soft-deactivate only ever touches the source it ran for.
 
 ## Cache locations
 
 ```
-apps/worker/data/raw/madrid-actividades.csv   ← Censo cache
-apps/worker/data/raw/osm-madrid-{date}.json   ← OSM cache (post-M6g)
+apps/worker/data/raw/madrid-actividades.csv   ← Madrid Censo cache
+apps/worker/data/raw/barcelona-cens-2024.csv  ← Barcelona Censo cache
+apps/worker/data/raw/spain.osm.pbf            ← Geofabrik Spain extract (~1.4 GB)
 ```
 
-Both are matched by `data/raw/` in `.gitignore`.
+All are matched by `data/raw/` in `.gitignore`.
 
 ## Soft-deactivation semantics
 

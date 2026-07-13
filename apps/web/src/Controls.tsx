@@ -1,4 +1,5 @@
 import type { Intent } from '@cervezadonde/shared';
+import type { MetaResponse } from './api.js';
 import { INTENT_COLOR } from './store-view.js';
 
 const madridTime = (iso: string): string =>
@@ -136,11 +137,20 @@ export function MoreSheet({
   filters,
   onChange,
   onClose,
+  meta,
 }: {
   filters: UiFilters;
   onChange: (next: UiFilters) => void;
   onClose: () => void;
+  meta: MetaResponse | null;
 }) {
+  const updatedOn = meta?.data_updated_at
+    ? new Intl.DateTimeFormat('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date(meta.data_updated_at))
+    : null;
   return (
     <div className="sheet">
       <button type="button" className="sheet__scrim" onClick={onClose} aria-label="Cerrar" />
@@ -192,7 +202,14 @@ export function MoreSheet({
 
         <div className="sheet__title">Datos</div>
         <p className="sheet__note">
-          Locales del Ayuntamiento de Madrid y © OpenStreetMap; horarios de OSM.
+          Locales de © OpenStreetMap (España), con censos oficiales de Madrid y Barcelona. Horarios
+          de OSM y de las webs de los locales.
+          {updatedOn && (
+            <>
+              <br />
+              Datos actualizados el {updatedOn}.
+            </>
+          )}
         </p>
 
         <button type="button" className="sheet__done" onClick={onClose}>

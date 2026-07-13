@@ -9,32 +9,33 @@ and the app respects opening hours and Madrid's municipal ordinance forbidding
 takeaway alcohol between 22:00 and 09:00
 ([ADR-004](./decisions/ADR-004-madrid-alcohol-ordinance.md)).
 
-Built on the Ayuntamiento de Madrid Censo de Locales + OpenStreetMap + PostGIS
-+ a deterministic scoring model. **No Google Maps** ([ADR-003](./decisions/ADR-003-no-google-scraping.md)).
+Built on OpenStreetMap (national POI base) enriched with official municipal
+censos (Madrid, Barcelona) + PostGIS + a deterministic scoring model.
+**No Google Maps** ([ADR-003](./decisions/ADR-003-no-google-scraping.md)).
 
-**Live:** deployed at [cervezadonde.es](https://cervezadonde.es) on a single
-VPS (PostGIS + API + Caddy). The data pipeline runs locally and ships finished
-serving tables to production — see [ADR-006](./decisions/ADR-006-deployment.md)
-and [`docs/13-deploy.md`](./docs/13-deploy.md).
-
-Madrid today; Spain-wide is the next scope step.
+**Live, Spain-wide:** deployed at [cervezadonde.es](https://cervezadonde.es) on
+a single VPS (PostGIS + API + Caddy). The data pipeline runs locally and ships
+finished serving tables to production — see
+[ADR-006](./decisions/ADR-006-deployment.md),
+[ADR-007](./decisions/ADR-007-national-osm-primary.md), and
+[`docs/13-deploy.md`](./docs/13-deploy.md).
 
 ## Status
 
-**The app is built and live end-to-end:** ~16k Madrid stores classified by
-`place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
-`/stores/map` + `/stores/nearby` with filters, the OSM hours-enrichment worker,
-and the web UI (time chip, lata/barra legend, intent filters, nearest-open
-card). 102 Vitest cases green.
+**The app is built and live end-to-end across Spain:** ~177k stores classified
+by `place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
+`/stores/map` + `/stores/clusters` + `/stores/nearby` with filters, the OSM +
+censo + website-hours pipeline, and the web UI (time chip, lata/barra legend,
+intent filters, nearest-open card, street search). 142 Vitest cases green.
 
 | Area | State |
 |---|---|
 | Data model, ingestion, scoring, API, web UI | done |
-| Deployment (VPS) + one-command data refresh + CI deploy | done |
-| **Opening-hours coverage** | ⚠️ ~9% (OSM only) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
-| Richer hours (website `schema.org` crawl, defaults, feedback) | next |
-| Spain-wide coverage (OSM as the national POI base) | next |
-| Store detail page, user feedback + moderation | later |
+| Spain-wide coverage (OSM national base + Madrid/Barcelona censos) | done |
+| Deployment (VPS) + one-command weekly refresh (`refresh-all.ps1`) + CI deploy | done |
+| **Opening-hours coverage** | ⚠️ ~13% (OSM + website crawl + estimated defaults) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
+| Community feedback loop for hours (contribute back to OSM) | next |
+| More city censos (Valencia, Zaragoza, …), store detail page | later |
 
 ## Stack
 
@@ -51,15 +52,15 @@ card). 102 Vitest cases green.
 ## Layout
 
 ```
-apps/api          Fastify HTTP server (/health, /stores/nearby, /stores/map)
+apps/api          Fastify HTTP server (/health, /meta, /stores/{nearby,map,clusters})
 apps/web          Vite + React + MapLibre map UI
-apps/worker       Ingestion CLI (ingest:madrid, ingest:osm, ingest:sample, diagnose:madrid)
+apps/worker       Ingestion CLI (ingest:madrid, ingest:barcelona, ingest:osm:pbf, crawl:hours, …)
 packages/shared   Shared TS types & Zod schemas
 packages/db       node-pg-migrate migrations + postgres-js client
 deploy/           Production stack (Dockerfile.api, docker-compose.prod.yml, Caddyfile)
-scripts/          Data push (push-data.ps1) + dump helper
-docs/             Product, architecture, scoring, governance, runbook, deploy
-decisions/        ADRs (001–006)
+scripts/          Weekly refresh (refresh-all.ps1) + data push (push-data.ps1) + dump helper
+docs/             Product, architecture, scoring, governance, runbook, deploy, roadmap
+decisions/        ADRs (001–007)
 ```
 
 ## Prerequisites
@@ -86,13 +87,17 @@ pnpm web:dev               # terminal B — Vite on :5173
 # open http://localhost:5173
 ```
 
-Load real Madrid data:
+Load real data (OSM national base + official censos):
 
 ```powershell
-pnpm worker:ingest:madrid --limit 200    # first time, quick
-pnpm worker:ingest:madrid                # full Censo (bars + shops)
-pnpm worker:ingest:osm --fresh           # OSM opening-hours enrichment
+pnpm worker:ingest:madrid                # Madrid Censo (official enrichment)
+pnpm worker:ingest:barcelona             # Barcelona Censo (official enrichment)
+pnpm worker:ingest:osm:pbf -r spain      # OSM canonical, all of Spain (via osmium)
+pnpm worker:crawl:hours                  # website schema.org opening hours (incremental)
 ```
+
+Or run the whole weekly pipeline (all of the above) with one command — see
+[the refresh section](#deploy) and `scripts/refresh-all.ps1`.
 
 ## Command reference
 
@@ -101,26 +106,32 @@ pnpm worker:ingest:osm --fresh           # OSM opening-hours enrichment
 | `pnpm db:up` / `pnpm db:down` | Start / stop PostGIS container |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm worker:ingest:sample` | Load fixture (no network) |
-| `pnpm worker:ingest:madrid [--limit N] [--fresh]` | Censo pipeline |
-| `pnpm worker:ingest:osm [--fresh] [-l N]` | OSM opening-hours enrichment (onto Censo stores) |
-| `pnpm worker:ingest:osm:pbf [-r region] [--fresh]` | OSM-canonical ingest from a Geofabrik pbf via osmium (national path, ADR-007) |
+| `pnpm worker:ingest:madrid [--limit N] [--fresh]` | Madrid Censo (official enrichment) |
+| `pnpm worker:ingest:barcelona [--fresh]` | Barcelona Censo (official enrichment) |
+| `pnpm worker:ingest:osm:pbf [-r region] [--fresh]` | OSM-canonical ingest from a Geofabrik pbf via osmium (national base, ADR-007) |
+| `pnpm worker:crawl:hours [-l N]` | Crawl business websites for schema.org opening hours (incremental) |
 | `pnpm worker:diagnose:madrid` | Report source-file shape, no DB writes |
 | `pnpm api:dev` / `pnpm web:dev` | Run API (:3001) / web (:5173) |
 | `pnpm test` | Vitest across all workspaces |
 | `pnpm typecheck` / `pnpm lint` / `pnpm format` | tsc / Biome |
-| `.\scripts\push-data.ps1` | Dump serving tables and refresh production |
+| `.\scripts\refresh-all.ps1` | **Weekly**: run the whole pipeline + push to prod (Task Scheduler) |
+| `.\scripts\push-data.ps1` | Dump serving tables and refresh production only |
 
 ## Deploy
 
-Code deploys from GitHub Actions on every push to `main`; data is pushed
-PC → VPS with `.\scripts\push-data.ps1`. Full walkthrough (provisioning, DNS,
-first deploy, weekly refresh) in [`docs/13-deploy.md`](./docs/13-deploy.md).
+Code deploys from GitHub Actions on every push to `main`. Data is refreshed
+weekly from your PC with `.\scripts\refresh-all.ps1` (runs the whole pipeline
+then pushes to the VPS), scheduled via Windows Task Scheduler; `push-data.ps1`
+ships data only. `GET /api/meta` reports the live dataset's `data_updated_at`.
+Full walkthrough (provisioning, DNS, first deploy, weekly refresh) in
+[`docs/13-deploy.md`](./docs/13-deploy.md).
 
 ## Source-name conventions
 
-- `censo_madrid` — real Censo data (canonical).
-- `madrid_sample_fixture` — bundled fixture.
-- `osm_only` — OSM-only places without a Censo match (parked for review).
+- `osm` — OpenStreetMap canonical stores (the national base, ADR-007).
+- `censo_madrid` / `censo_barcelona` — official municipal censos; matched OSM
+  stores are flagged `oficial` and their duplicates hidden (`excluded`).
+- `madrid_sample_fixture` — bundled fixture (offline dev).
 
 Each source's ingest only soft-deactivates its own rows.
 
@@ -142,13 +153,14 @@ Each source's ingest only soft-deactivates its own rows.
 - [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) — where to get more opening hours
 - [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
 - [`docs/14-roadmap.md`](./docs/14-roadmap.md) — next steps / handoff (UX, censos, ops, hours)
-- [`decisions/`](./decisions/) — ADR-001…006
+- [`decisions/`](./decisions/) — ADR-001…007
 
 ## Attribution
 
-Contiene información reutilizada del Portal de Datos Abiertos del Ayuntamiento
-de Madrid. Datos de horarios y enriquecimiento © OpenStreetMap contributors.
-Mapa base © OpenStreetMap contributors.
+Locales y horarios © OpenStreetMap contributors (base nacional). Enriquecido con
+datos oficiales del Portal de Datos Abiertos del Ayuntamiento de Madrid y del
+Cens d'activitats econòmiques en planta baixa (Open Data BCN, CC BY 4.0). Mapa
+base © OpenStreetMap contributors, © CARTO.
 
 La Ordenanza Municipal de Madrid no permite la venta de alcohol para llevar
 entre las 22:00 y las 09:00. La aplicación marca los establecimientos como

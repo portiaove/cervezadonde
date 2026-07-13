@@ -2,6 +2,7 @@ import { closeSql } from '@cervezadonde/db';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerMetaRoutes } from './routes/meta.js';
 import { registerStoresRoutes } from './routes/stores.js';
 
 const port = Number(process.env.API_PORT ?? 3001);
@@ -19,6 +20,7 @@ async function main() {
   });
 
   await app.register(registerHealthRoutes);
+  await app.register(registerMetaRoutes);
   await app.register(registerStoresRoutes, { prefix: '/stores' });
 
   const shutdown = async (signal: string) => {

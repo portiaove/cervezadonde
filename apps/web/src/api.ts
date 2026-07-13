@@ -76,6 +76,19 @@ export async function fetchClusters(
   return (await res.json()) as ClusterResponse;
 }
 
+/** Dataset freshness + size, from the API's /meta endpoint. */
+export type MetaResponse = {
+  data_updated_at: string | null;
+  active_stores: number;
+  stores_with_hours: number;
+};
+
+export async function fetchMeta(): Promise<MetaResponse> {
+  const res = await fetch(`${API_URL}/meta`);
+  if (!res.ok) throw new Error(`meta failed: ${res.status}`);
+  return (await res.json()) as MetaResponse;
+}
+
 export async function fetchNearby(
   center: { lat: number; lng: number; radius_m?: number; limit?: number },
   filters: Filters = {},

@@ -65,11 +65,14 @@ To extend to other cities:
 
 ## 3. Operations & observability
 
-### 3a. Weekly data refresh (automate)
-Today it's manual: `ingest:madrid` → `ingest:osm:pbf -r spain` → `push-data.ps1`.
-- Wrap in one script `scripts/refresh-all.ps1` and schedule it with **Windows
-  Task Scheduler** (weekly). Document the exact task.
-- The Geofabrik Spain extract updates ~monthly, so weekly is plenty.
+### 3a. Weekly data refresh (automate) — ✅ DONE
+`scripts/refresh-all.ps1` runs the whole pipeline in order (Madrid + Barcelona
+censos → all-Spain OSM+enrichment → website hours crawl → `push-data.ps1`),
+logs each run to `logs/refresh-history.csv` + a transcript, and is scheduled
+with **Windows Task Scheduler** (`StartWhenAvailable`, no wake; runs only when
+logged on, catches up on next login). Setup command in
+[`docs/13-deploy.md`](./13-deploy.md) §2. The Geofabrik Spain extract updates
+~monthly, so weekly is plenty (`-NoFreshPbf` to reuse the cached extract).
 
 ### 3b. Backups
 - **Data is regenerable** from the PC pipeline, so the VPS DB isn't precious
@@ -81,6 +84,10 @@ Today it's manual: `ingest:madrid` → `ingest:osm:pbf -r spain` → `push-data.
   there's non-regenerable data).
 
 ### 3c. Monitoring & logs
+- **Data freshness** — ✅ `GET /api/meta` returns `data_updated_at` (last
+  refresh) + `active_stores` / `stores_with_hours`. Surfaced in the app's
+  "Datos" sheet ("Datos actualizados el …"). Handy as a cheap post-refresh
+  sanity check; `/health` stays DB-free for the uptime probe.
 - **Uptime**: external monitor hitting `https://cervezadonde.es/api/health`
   (e.g. **UptimeRobot**, free) → alert on downtime. Would have caught today's
   404 immediately (note: monitor `/` too, not just the API, since today the API
