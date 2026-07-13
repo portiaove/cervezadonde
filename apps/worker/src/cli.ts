@@ -6,7 +6,6 @@ import { ingestBarcelona } from './ingest-barcelona.js';
 import { ingestMadrid } from './ingest-madrid.js';
 import { ingestOsmCanonical } from './ingest-osm-canonical.js';
 import { ingestOsmPbf } from './ingest-osm-pbf.js';
-import { ingestOsm } from './ingest-osm.js';
 import { ingestSample } from './ingest-sample.js';
 
 const program = new Command();
@@ -65,29 +64,6 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:barcelona failed:', err);
-      process.exitCode = 1;
-    } finally {
-      await closeSql();
-    }
-  });
-
-program
-  .command('ingest:osm')
-  .description('Fetch OSM opening_hours via Overpass, match to stores, materialise hours.')
-  .option('--fresh', "re-query Overpass even if today's cache exists", false)
-  .option('-l, --limit <n>', 'cap parsed places (for first runs / testing)', (v) =>
-    Number.parseInt(v, 10),
-  )
-  .action(async (opts: { fresh?: boolean; limit?: number }) => {
-    try {
-      const summary = await ingestOsm({
-        fresh: opts.fresh,
-        limit: opts.limit,
-        log: (m) => console.error(m),
-      });
-      console.log(JSON.stringify(summary, null, 2));
-    } catch (err) {
-      console.error('ingest:osm failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();

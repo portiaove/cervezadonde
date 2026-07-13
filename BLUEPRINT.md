@@ -123,8 +123,6 @@ cervezadonde/
     09-legal-data-governance.md
     10-delivery-plan.md
     11-runbook.md
-  prompts/
-    IMPLEMENTATION_BRIEF_FOR_AI.md
   decisions/
     ADR-001-stack.md
     ADR-002-data-sources.md

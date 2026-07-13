@@ -12,7 +12,6 @@
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",
     "crawl:hours": "tsx src/cli.ts crawl:hours",
-    "ingest:osm": "tsx src/cli.ts ingest:osm",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
     "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",
     "diagnose:madrid": "tsx src/cli.ts diagnose:madrid"

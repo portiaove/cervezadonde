@@ -108,14 +108,14 @@ logged on, catches up on next login). Setup command in
   scripts). Rename to `cervezadonde` for consistency — needs recreating the
   local DB (or `ALTER DATABASE/ROLE ... RENAME`) + updating those files. Prod DB
   is already `cervezadonde`.
-- **Two OSM ingest paths coexist**: `ingest:osm:region` (Overpass, prototype)
-  and `ingest:osm:pbf` (Geofabrik, the real one). Decide whether to keep the
-  Overpass one for tiny tests or remove it.
-- **`ingest:osm`** (the old Overpass *hours-only* enrichment onto Censo) and the
-  `store_osm_enrichment` table are largely legacy now that the pbf path makes
-  OSM canonical with hours built in. Clarify their role or deprecate.
-- Confirm `source_name` is uniformly `'osm'` everywhere (standardised this
-  session).
+- ~~**`ingest:osm`** (old Overpass hours-only enrichment) + the
+  `store_osm_enrichment` table~~ **Removed** (migration 1700000000009): the
+  canonical pbf ingest writes `opening_hours_osm` directly, so both were dead.
+- **Two OSM ingest paths remain by design**: `ingest:osm:region` (Overpass, a
+  light path for quick regional tests) and `ingest:osm:pbf` (Geofabrik, the real
+  national one). Both share `persistOsmCanonical`; the region one is kept only as
+  a fast test harness — drop it too if it ever drifts.
+- Confirm `source_name` is uniformly `'osm'` everywhere (standardised).
 
 ---
 

@@ -12,9 +12,10 @@ coverage/
 .env.prod
 **/.env.prod
 
-# deploy: uploaded web build + local dumps
+# deploy: uploaded web build + local dumps/archives
 deploy/web-dist/
 *.dump
+*.tgz
 
 # logs
 logs/
