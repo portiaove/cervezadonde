@@ -126,6 +126,23 @@ ships data only. `GET /api/meta` reports the live dataset's `data_updated_at`.
 Full walkthrough (provisioning, DNS, first deploy, weekly refresh) in
 [`docs/13-deploy.md`](./docs/13-deploy.md).
 
+## Operations
+
+Everything you run to keep it alive, in one place (detail in
+[`docs/13-deploy.md`](./docs/13-deploy.md) + [`docs/15-observability.md`](./docs/15-observability.md)):
+
+| Task | Command | Where |
+|---|---|---|
+| Weekly data refresh + push to prod | `.\scripts\refresh-all.ps1` (Task Scheduler) | PC |
+| Push data only (no re-ingest) | `.\scripts\push-data.ps1` | PC |
+| Deploy code | `git push origin main` (GitHub Actions) | PC |
+| Check live data freshness | `curl https://cervezadonde.es/api/meta` | anywhere |
+| View analytics (report + searched areas) | `bash scripts/analytics.sh` | VPS |
+| Searched-areas table only | `python3 scripts/top-areas.py` | VPS |
+| Archive a monthly analytics snapshot | `bash scripts/analytics.sh --archive` (monthly cron) | VPS |
+| Uptime alerts | UptimeRobot → `/` + `/api/health` | external |
+| Disaster recovery (rebuild) | see [`docs/15`](./docs/15-observability.md) §5 | — |
+
 ## Source-name conventions
 
 - `osm` — OpenStreetMap canonical stores (the national base, ADR-007).

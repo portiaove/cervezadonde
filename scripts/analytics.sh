@@ -17,6 +17,10 @@ GEO="$ROOT/deploy/geoip/dbip-city-lite.mmdb"
 OUT_DIR="$ROOT/deploy/web-analytics"
 OUT="$OUT_DIR/report.html"
 
+# `--archive` also freezes a dated monthly snapshot (run it from a monthly cron).
+ARCHIVE=0
+[ "${1:-}" = "--archive" ] && ARCHIVE=1
+
 mkdir -p "$(dirname "$GEO")" "$OUT_DIR"
 
 if [ ! -s "$LOG" ]; then
@@ -53,3 +57,17 @@ echo
 echo "Full report (visitors, geo, devices, referrers, errors):"
 echo "  $OUT"
 echo "  view:  scp root@cervezadonde.es:$OUT .    — or serve at /analytics (docs/15 §4)"
+
+# Monthly archive: a frozen dated report + a growing top-areas history file, so
+# you can look back at monthly metrics after raw logs have rolled off.
+if [ "$ARCHIVE" = 1 ]; then
+  ARCH="$OUT_DIR/archive"
+  mkdir -p "$ARCH"
+  MONTH="$(date +%Y-%m)"
+  cp -f "$OUT" "$ARCH/report-$MONTH.html"
+  python3 "$ROOT/scripts/top-areas.py" --tsv "$LOG" | while IFS=$'\t' read -r area hits; do
+    printf '%s\t%s\t%s\n' "$MONTH" "$area" "$hits"
+  done >> "$ARCH/areas-history.tsv"
+  echo
+  echo "Archived monthly snapshot → $ARCH/report-$MONTH.html (+ areas-history.tsv)"
+fi

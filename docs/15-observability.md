@@ -101,11 +101,19 @@ Keep it fresh automatically with a daily cron (`crontab -e`):
 30 4 * * * cd /root/cervezadonde && bash scripts/analytics.sh >/dev/null 2>&1
 ```
 
-**Retention.** The report covers whatever Caddy still retains (`roll_size` ×
-`roll_keep` in the Caddyfile — bump `roll_keep` for a longer window; disk is
-40 GB). For long-term aggregates that survive log deletion, switch GoAccess to
-persistent mode (`--persist --restore --db-path=…`, processing each rotated file
-once). Start simple.
+**Retention & monthly history.** The live `report.html` is *regenerated* each
+run from the logs Caddy still holds (now ~60 days: `roll_keep 30` /
+`roll_keep_for 1440h`). So it's a rolling window — old data ages out. To **keep
+monthly metrics**, run archive mode from a monthly cron:
+
+```
+0 5 1 * * cd /root/cervezadonde && bash scripts/analytics.sh --archive
+```
+
+`--archive` freezes a dated `web-analytics/archive/report-YYYY-MM.html` and
+appends that month's top areas to `web-analytics/archive/areas-history.tsv`
+(`month  area  hits`). Snapshots are never overwritten, so you get a browsable
+month-by-month history without keeping raw logs forever.
 
 ### Viewing the full HTML report
 

@@ -108,7 +108,10 @@ def log_paths(base):
 
 
 def main():
-    base = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_LOG
+    argv = sys.argv[1:]
+    tsv = "--tsv" in argv  # machine-readable "area<TAB>hits" for the monthly archive
+    positional = [a for a in argv if not a.startswith("-")]
+    base = positional[0] if positional else DEFAULT_LOG
     paths = log_paths(base)
     areas, total = Counter(), 0
     for path in paths:
@@ -127,6 +130,10 @@ def main():
                     areas[nearest_metro(*coord)] += 1
                     total += 1
 
+    if tsv:
+        for name, hits in areas.most_common():
+            print(f"{name}\t{hits}")
+        return
     if not total:
         print("No map/search requests found yet — check back once people use the map.")
         return
