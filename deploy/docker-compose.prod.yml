@@ -68,6 +68,9 @@ services:
       - ${WEB_DIST_PATH:-./web-dist}:/srv/web:ro
       # Access logs (JSON) for GoAccess analytics on the host — see docs/15.
       - ./logs/caddy:/var/log/caddy
+      # Host-only extra routes (the /analytics dashboard) + the report dir it serves.
+      - ./caddy-conf.d:/etc/caddy/conf.d:ro
+      - ./web-analytics:/srv/analytics:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

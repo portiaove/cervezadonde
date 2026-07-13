@@ -115,38 +115,37 @@ appends that month's top areas to `web-analytics/archive/areas-history.tsv`
 (`month  area  hits`). Snapshots are never overwritten, so you get a browsable
 month-by-month history without keeping raw logs forever.
 
-### Viewing the full HTML report
+### The `/analytics` dashboard (private URL)
 
-Quick and dependency-free:
+`analytics.sh` builds `web-analytics/index.html` — **one page with everything**:
+the searched-areas table, a link to the full GoAccess report, and the monthly
+archive. The Caddyfile + compose already mount `web-analytics` at `/srv/analytics`
+and `import` any host-only routes from `/etc/caddy/conf.d/*.caddy`.
+
+To turn on the password-protected URL, drop **one file on the VPS** — kept out of
+git so the password never touches the public repo, and a missing file is a no-op
+that can't break the site:
 
 ```bash
-scp root@cervezadonde.es:/root/cervezadonde/deploy/web-analytics/report.html .
+# 1. generate a bcrypt hash for your password
+docker exec cervezadonde-caddy caddy hash-password --plaintext 'YOUR_PASSWORD'
+
+# 2. create deploy/caddy-conf.d/analytics.caddy with (paste the $2a$… hash):
+handle_path /analytics* {
+    basic_auth {
+        juan <PASTE_THE_HASH>
+    }
+    root * /srv/analytics
+    file_server browse
+}
+
+# 3. reload Caddy
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod restart caddy
 ```
 
-Nicer (a private URL, no scp) — serve it behind basic auth. **Set the hash
-first, then deploy the route**, or Caddy could start with an empty credential:
-
-1. Generate a hash and add it to `deploy/.env.prod`:
-   ```bash
-   docker exec cervezadonde-caddy caddy hash-password --plaintext 'YOUR_PASSWORD'
-   # deploy/.env.prod:  ANALYTICS_HASH='<the $2a$… hash>'
-   ```
-2. Add to the Caddyfile site block + mount the dir on the caddy service, then
-   redeploy:
-   ```
-   handle_path /analytics* {
-       basic_auth { juan {$ANALYTICS_HASH} }
-       root * /srv/analytics
-       file_server browse
-   }
-   ```
-   ```yaml
-   # caddy service: pass the env + mount the report dir
-   environment: { ANALYTICS_HASH: ${ANALYTICS_HASH} }
-   volumes:     [ "./web-analytics:/srv/analytics:ro" ]
-   ```
-
-Then browse `https://cervezadonde.es/analytics`. Never expose analytics without auth.
+Then browse `https://cervezadonde.es/analytics` (user `juan` + your password). No
+scp needed. Quick alternative without a URL:
+`scp root@cervezadonde.es:/root/cervezadonde/deploy/web-analytics/report.html .`
 
 ---
 

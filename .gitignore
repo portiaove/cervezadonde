@@ -28,6 +28,8 @@ report.html
 deploy/web-analytics/
 deploy/geoip/
 *.mmdb
+# host-only Caddy routes (the /analytics password lives here, off the repo)
+deploy/caddy-conf.d/
 
 # editor / OS
 .DS_Store

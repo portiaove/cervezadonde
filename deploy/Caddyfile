@@ -15,6 +15,11 @@
 		format json
 	}
 
+	# Optional host-only routes (e.g. the password-protected /analytics). Kept out
+	# of git so secrets stay off the public repo; a missing dir is a harmless
+	# no-op, so this can never take the site down. See docs/15 §4.
+	import /etc/caddy/conf.d/*.caddy
+
 	handle_path /api/* {
 		reverse_proxy api:3001
 	}

@@ -110,6 +110,7 @@ def log_paths(base):
 def main():
     argv = sys.argv[1:]
     tsv = "--tsv" in argv  # machine-readable "area<TAB>hits" for the monthly archive
+    html = "--html" in argv  # HTML table for the /analytics dashboard page
     positional = [a for a in argv if not a.startswith("-")]
     base = positional[0] if positional else DEFAULT_LOG
     paths = log_paths(base)
@@ -130,6 +131,16 @@ def main():
                     areas[nearest_metro(*coord)] += 1
                     total += 1
 
+    if html:
+        if not total:
+            print("<p>Sin búsquedas registradas todavía.</p>")
+            return
+        print(f"<p>{total} búsquedas en el mapa.</p>")
+        print("<table><tr><th>Zona</th><th>hits</th><th>%</th></tr>")
+        for name, hits in areas.most_common():
+            print(f"<tr><td>{name}</td><td>{hits}</td><td>{hits / total:.0%}</td></tr>")
+        print("</table>")
+        return
     if tsv:
         for name, hits in areas.most_common():
             print(f"{name}\t{hits}")
