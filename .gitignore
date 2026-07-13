@@ -17,6 +17,7 @@ deploy/web-dist/
 *.dump
 
 # logs
+logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
