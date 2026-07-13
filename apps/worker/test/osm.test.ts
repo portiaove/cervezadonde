@@ -189,6 +189,19 @@ describe('classifyOsmPlace', () => {
   it('a bar amenity wins over a shop tag on the same element', () => {
     expect(classifyOsmPlace(place({ amenity: 'bar', shop: 'convenience' })).placeType).toBe('bar');
   });
+
+  it('fuel stations are gasolinera (lata / takeaway)', () => {
+    const c = classifyOsmPlace(place({ amenity: 'fuel', opening_hours: 'Mo-Su 00:00-24:00' }));
+    expect(c.placeType).toBe('gasolinera');
+    expect(c.sellsTakeawayBeer).toBe(true);
+    expect(c.sellsOnsiteBeer).toBe(false);
+  });
+
+  it('a fuel station with a convenience shop is still gasolinera', () => {
+    expect(classifyOsmPlace(place({ amenity: 'fuel', shop: 'convenience' })).placeType).toBe(
+      'gasolinera',
+    );
+  });
 });
 
 describe('extractWebsite', () => {

@@ -109,7 +109,7 @@ const buildAddress = (props: Record<string, string>): string | null => {
 };
 
 /** Parse one osmium-export GeoJSON feature into an OsmPlace. */
-function featureToPlace(feature: {
+export function featureToPlace(feature: {
   id?: string;
   geometry: { type: string; coordinates: unknown };
   properties?: Record<string, string>;
@@ -119,7 +119,15 @@ function featureToPlace(feature: {
   const props = feature.properties ?? {};
   const okAmenity = props.amenity !== undefined && AMENITY_SET.has(props.amenity);
   const okShop = props.shop !== undefined && SHOP_SET.has(props.shop);
-  if (!okAmenity && !okShop) return null;
+  // Fuel stations: keep only ones that look staffed/retail — a recognised shop
+  // tag (okShop above) or opening_hours as a proxy — and never unattended
+  // pumps. Bare amenity=fuel with no hours is dropped (gasolinera decision).
+  const okFuel =
+    props.amenity === 'fuel' &&
+    props.opening_hours !== undefined &&
+    props.automated !== 'yes' &&
+    props.self_service !== 'yes';
+  if (!okAmenity && !okShop && !okFuel) return null;
   const id = feature.id ?? '';
   const osmType = OSM_TYPE[id[0] ?? ''] ?? 'node';
   const name = props.name ?? null;
@@ -188,7 +196,7 @@ export async function ingestOsmPbf(opts: {
     '-o',
     `/data/${region}-filtered.osm.pbf`,
     `/data/${region}.osm.pbf`,
-    `nwr/amenity=${OSM_AMENITY_VALUES.join(',')}`,
+    `nwr/amenity=${[...OSM_AMENITY_VALUES, 'fuel'].join(',')}`,
     `nwr/shop=${OSM_SHOP_VALUES.join(',')}`,
   ]);
   log('osmium: exporting GeoJSON...');

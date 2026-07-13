@@ -21,7 +21,14 @@ export const ORDINANCE = {
 } as const;
 
 export type PlaceForOpenNow = {
-  place_type: 'bar' | 'supermercado' | 'alimentacion' | 'bodega' | 'tienda_24h' | 'otro';
+  place_type:
+    | 'bar'
+    | 'supermercado'
+    | 'alimentacion'
+    | 'bodega'
+    | 'tienda_24h'
+    | 'gasolinera'
+    | 'otro';
   sells_takeaway_beer: boolean;
   opening_hours_osm: string | null;
   /** Hours crawled from the business website (crawl:hours). Optional for callers without it. */
@@ -55,6 +62,9 @@ export const DEFAULT_HOURS_BY_TYPE: Record<PlaceForOpenNow['place_type'], string
   alimentacion: 'Mo-Su 10:00-22:00',
   bodega: 'Mo-Sa 10:00-14:00,17:00-20:30',
   tienda_24h: '24/7',
+  // Only used for a fuel+shop station whose OSM hours are missing; bare pumps
+  // without hours are dropped at ingest. Conservative estimate, never "24/7".
+  gasolinera: 'Mo-Su 06:00-24:00',
   otro: null,
 };
 

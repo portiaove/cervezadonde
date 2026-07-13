@@ -52,6 +52,7 @@ export const PLACE_TYPE_LABEL: Record<PlaceType, string> = {
   alimentacion: 'Alimentación',
   bodega: 'Bodega',
   tienda_24h: 'Tienda 24h',
+  gasolinera: 'Gasolinera',
   otro: 'Local',
 };
 

@@ -50,6 +50,7 @@ export const PlaceType = z.enum([
   'alimentacion',
   'bodega',
   'tienda_24h',
+  'gasolinera',
   'otro',
 ]);
 export type PlaceType = z.infer<typeof PlaceType>;

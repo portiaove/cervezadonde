@@ -243,6 +243,7 @@ export type OsmPlaceType =
   | 'alimentacion'
   | 'bodega'
   | 'tienda_24h'
+  | 'gasolinera'
   | 'otro';
 
 export type OsmClassification = {
@@ -269,6 +270,11 @@ const is24_7 = (hours: string | null): boolean => !!hours && /24\/7/.test(hours)
 export function classifyOsmPlace(place: OsmPlace): OsmClassification {
   if (place.amenityTag && BAR_AMENITIES.has(place.amenityTag)) {
     return { placeType: 'bar', sellsOnsiteBeer: true, sellsTakeawayBeer: false };
+  }
+  // Fuel stations reach here only if the ingest filter kept them (they have a
+  // shop tag, or opening_hours as a staffed-retail proxy — see featureToPlace).
+  if (place.amenityTag === 'fuel') {
+    return { placeType: 'gasolinera', sellsOnsiteBeer: false, sellsTakeawayBeer: true };
   }
   switch (place.shopTag) {
     case 'supermarket':
