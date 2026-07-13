@@ -114,7 +114,9 @@ def main():
     positional = [a for a in argv if not a.startswith("-")]
     base = positional[0] if positional else DEFAULT_LOG
     paths = log_paths(base)
-    areas, total = Counter(), 0
+    # Count DISTINCT visitors per area (dedupe by IP), so panning the map around
+    # one city counts as one interested visitor, not one per request.
+    pairs = set()
     for path in paths:
         try:
             fh = open_any(path)
@@ -123,36 +125,42 @@ def main():
         with fh:
             for line in fh:
                 try:
-                    uri = json.loads(line)["request"]["uri"]
+                    req = json.loads(line)["request"]
+                    uri = req["uri"]
                 except (ValueError, KeyError, TypeError):
                     continue
                 coord = coord_from_uri(uri)
-                if coord:
-                    areas[nearest_metro(*coord)] += 1
-                    total += 1
+                if not coord:
+                    continue
+                ip = req.get("remote_ip") or req.get("client_ip") or req.get("remote_addr") or "?"
+                pairs.add((ip, nearest_metro(*coord)))
+
+    areas = Counter(area for _, area in pairs)
+    total = sum(areas.values())
+    visitors = len({ip for ip, _ in pairs})
 
     if html:
         if not total:
             print("<p>Sin búsquedas registradas todavía.</p>")
             return
-        print(f"<p>{total} búsquedas en el mapa.</p>")
-        print("<table><tr><th>Zona</th><th>hits</th><th>%</th></tr>")
-        for name, hits in areas.most_common():
-            print(f"<tr><td>{name}</td><td>{hits}</td><td>{hits / total:.0%}</td></tr>")
+        print(f"<p>{visitors} visitantes distintos han explorado el mapa.</p>")
+        print("<table><tr><th>Zona</th><th>visitantes</th><th>%</th></tr>")
+        for name, n in areas.most_common():
+            print(f"<tr><td>{name}</td><td>{n}</td><td>{n / total:.0%}</td></tr>")
         print("</table>")
         return
     if tsv:
-        for name, hits in areas.most_common():
-            print(f"{name}\t{hits}")
+        for name, n in areas.most_common():
+            print(f"{name}\t{n}")
         return
     if not total:
-        print("No map/search requests found yet — check back once people use the map.")
+        print("No searches yet — check back once people use the map.")
         return
-    print(f"Top searched areas ({total} map/search requests)\n")
-    print(f"{'Area':<26}{'hits':>7}{'share':>9}")
-    print("-" * 42)
-    for name, hits in areas.most_common():
-        print(f"{name:<26}{hits:>7}{hits / total:>8.0%}")
+    print(f"Top areas by distinct visitors ({visitors} visitors)\n")
+    print(f"{'Area':<26}{'visitors':>9}{'share':>9}")
+    print("-" * 44)
+    for name, n in areas.most_common():
+        print(f"{name:<26}{n:>9}{n / total:>8.0%}")
 
 
 if __name__ == "__main__":

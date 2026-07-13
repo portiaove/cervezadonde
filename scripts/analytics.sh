@@ -62,14 +62,14 @@ fi
   echo '<h2>Zonas más buscadas</h2>'
   python3 "$ROOT/scripts/top-areas.py" --html "$LOG"
   echo '<h2>Informe completo</h2>'
-  echo '<p><a href="report.html">GoAccess — visitas, geolocalización, dispositivos, referrers, errores →</a></p>'
+  echo '<p><a href="/analytics/report.html">GoAccess — visitas, geolocalización, dispositivos, referrers, errores →</a></p>'
   echo '<h2>Histórico mensual</h2><ul>'
   for f in "$OUT_DIR"/archive/report-*.html; do
-    [ -e "$f" ] && echo "<li><a href=\"archive/$(basename "$f")\">$(basename "$f")</a></li>"
+    [ -e "$f" ] && echo "<li><a href=\"/analytics/archive/$(basename "$f")\">$(basename "$f")</a></li>"
   done
   echo '</ul>'
   [ -e "$OUT_DIR/archive/areas-history.tsv" ] &&
-    echo '<p><a href="archive/areas-history.tsv">areas-history.tsv — zonas por mes</a></p>'
+    echo '<p><a href="/analytics/archive/areas-history.tsv">areas-history.tsv — zonas por mes</a></p>'
   echo '</body></html>'
 } > "$OUT_DIR/index.html"
 

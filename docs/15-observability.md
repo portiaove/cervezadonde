@@ -70,7 +70,8 @@ IP geolocation is weak (ISP/carrier hubs). The strong signal is the
 `/api/stores/map`, `/api/stores/clusters`. A cluster of requests over Málaga is
 your cue to add the Málaga censo. GoAccess lists top URLs but doesn't bin
 coordinates into regions; **`scripts/top-areas.py`** does — it reads the same
-Caddy log and prints a "top searched areas" table by nearest Spanish metro:
+Caddy log and prints a "top areas" table by nearest Spanish metro, counting
+**distinct visitors** (dedupe by IP), so panning the map counts once:
 
 ```bash
 python3 scripts/top-areas.py    # defaults to the deploy access.log (+ rolled siblings)
@@ -112,8 +113,9 @@ monthly metrics**, run archive mode from a monthly cron:
 
 `--archive` freezes a dated `web-analytics/archive/report-YYYY-MM.html` and
 appends that month's top areas to `web-analytics/archive/areas-history.tsv`
-(`month  area  hits`). Snapshots are never overwritten, so you get a browsable
-month-by-month history without keeping raw logs forever.
+(`month  area  visitors` — distinct visitors, not raw requests). Snapshots are
+never overwritten, so you get a browsable month-by-month history without keeping
+raw logs forever.
 
 ### The `/analytics` dashboard (private URL)
 
