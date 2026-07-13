@@ -61,6 +61,9 @@ fi
   echo "<small>Actualizado: $(date '+%Y-%m-%d %H:%M %Z')</small>"
   echo '<h2>Zonas más buscadas</h2>'
   python3 "$ROOT/scripts/top-areas.py" --html "$LOG"
+  echo '<h2>Actividad por día</h2>'
+  echo '<p><small>Visitantes distintos y zona más buscada, por día.</small></p>'
+  python3 "$ROOT/scripts/top-areas.py" --daily --html "$LOG"
   echo '<h2>Informe completo</h2>'
   echo '<p><a href="/analytics/report.html">GoAccess — visitas, geolocalización, dispositivos, referrers, errores →</a></p>'
   echo '<h2>Histórico mensual</h2><ul>'

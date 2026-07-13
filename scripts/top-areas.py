@@ -21,7 +21,8 @@ import math
 import os
 import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime
 
 DEFAULT_LOG = "/root/cervezadonde/deploy/logs/caddy/access.log"
 
@@ -107,16 +108,57 @@ def log_paths(base):
     return out
 
 
+def day_of(entry):
+    """The request's date (YYYY-MM-DD) from Caddy's `ts` (epoch float or ISO)."""
+    ts = entry.get("ts")
+    if isinstance(ts, (int, float)):
+        return datetime.fromtimestamp(ts).date().isoformat()
+    if isinstance(ts, str) and len(ts) >= 10:
+        return ts[:10]
+    return "?"
+
+
+def render_daily(triples, html):
+    """Per-day breakdown: distinct visitors + the top area that day."""
+    days_vis = defaultdict(set)  # day -> set of visitor IPs
+    days_area = defaultdict(Counter)  # day -> area -> distinct visitors
+    for date, ip, area in triples:
+        days_vis[date].add(ip)
+        days_area[date][area] += 1
+    dates = sorted((d for d in days_vis if d != "?"), reverse=True)[:21]
+
+    def top_area(d):
+        top = days_area[d].most_common(1)
+        return f"{top[0][0]} ({top[0][1]})" if top else "—"
+
+    if html:
+        if not dates:
+            print("<p>Sin datos diarios todavía.</p>")
+            return
+        print("<table><tr><th>Día</th><th>visitantes</th><th>zona top</th></tr>")
+        for d in dates:
+            print(f"<tr><td>{d}</td><td>{len(days_vis[d])}</td><td>{top_area(d)}</td></tr>")
+        print("</table>")
+        return
+    if not dates:
+        print("No daily data yet.")
+        return
+    print(f"{'Date':<12}{'visitors':>9}  top area")
+    print("-" * 40)
+    for d in dates:
+        print(f"{d:<12}{len(days_vis[d]):>9}  {top_area(d)}")
+
+
 def main():
     argv = sys.argv[1:]
-    tsv = "--tsv" in argv  # machine-readable "area<TAB>hits" for the monthly archive
+    tsv = "--tsv" in argv  # machine-readable "area<TAB>visitors" for the monthly archive
     html = "--html" in argv  # HTML table for the /analytics dashboard page
+    daily = "--daily" in argv  # per-day breakdown instead of the overall table
     positional = [a for a in argv if not a.startswith("-")]
     base = positional[0] if positional else DEFAULT_LOG
     paths = log_paths(base)
-    # Count DISTINCT visitors per area (dedupe by IP), so panning the map around
-    # one city counts as one interested visitor, not one per request.
-    pairs = set()
+    # Distinct (day, visitor-IP, area) — dedupes map panning within a day.
+    triples = set()
     for path in paths:
         try:
             fh = open_any(path)
@@ -125,7 +167,8 @@ def main():
         with fh:
             for line in fh:
                 try:
-                    req = json.loads(line)["request"]
+                    entry = json.loads(line)
+                    req = entry["request"]
                     uri = req["uri"]
                 except (ValueError, KeyError, TypeError):
                     continue
@@ -133,8 +176,12 @@ def main():
                 if not coord:
                     continue
                 ip = req.get("remote_ip") or req.get("client_ip") or req.get("remote_addr") or "?"
-                pairs.add((ip, nearest_metro(*coord)))
+                triples.add((day_of(entry), ip, nearest_metro(*coord)))
 
+    if daily:
+        return render_daily(triples, html)
+
+    pairs = {(ip, area) for _, ip, area in triples}
     areas = Counter(area for _, area in pairs)
     total = sum(areas.values())
     visitors = len({ip for ip, _ in pairs})
