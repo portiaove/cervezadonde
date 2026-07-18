@@ -32,6 +32,12 @@ export const REGIONS: Record<string, [number, number, number, number]> = {
 const CONFIRM_RADIUS_M = 30;
 const CHUNK = 2000;
 
+// Safety valve for the stale-store prune: never let a single ingest hide more
+// than this fraction of the active OSM stores. A broken or partial extract
+// would leave most stores "unseen"; that's an ingest bug, not a wave of
+// closures, so we skip pruning and warn instead of gutting the map.
+const MAX_PRUNE_FRACTION = 0.15;
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -192,6 +198,62 @@ async function bulkUpsertStores(
 }
 
 /**
+ * Hide OSM stores that were NOT re-seen in this ingest — i.e. deleted from OSM
+ * or retagged to a lifecycle prefix (disused:/was:/abandoned:) that our osmium
+ * filter no longer matches. Those are almost always businesses that have closed
+ * (the open-data equivalent of Google's "permanently closed"), so exclude them.
+ *
+ * ONLY safe on a FULL-coverage national run: a partial region ingest doesn't see
+ * the rest of Spain, so "unseen" there means "out of scope", not "closed". The
+ * MAX_PRUNE_FRACTION guard is a second line of defence against a broken extract.
+ * Re-seeing a store later reactivates it (the upsert overwrites confidence_level),
+ * so a transient extract gap self-heals on the next run.
+ */
+async function pruneVanishedOsmStores(
+  sql: Sql,
+  importRunId: number,
+  log: (m: string) => void,
+): Promise<number> {
+  const [counts] = await sql<{ seen: number; vanished: number; active_total: number }[]>`
+    SELECT
+      count(*) FILTER (WHERE last_import_run_id = ${importRunId})::int                AS seen,
+      count(*) FILTER (WHERE last_import_run_id IS DISTINCT FROM ${importRunId})::int AS vanished,
+      count(*)::int                                                                  AS active_total
+    FROM stores
+    WHERE source_name = ${OSM_SOURCE_NAME} AND confidence_level <> 'excluded'
+  `;
+  const seen = counts?.seen ?? 0;
+  const vanished = counts?.vanished ?? 0;
+  const activeTotal = counts?.active_total ?? 0;
+
+  if (vanished === 0) {
+    log('prune: every active OSM store was re-seen — nothing to hide');
+    return 0;
+  }
+  if (seen === 0 || vanished > activeTotal * MAX_PRUNE_FRACTION) {
+    log(
+      `prune SKIPPED: ${vanished}/${activeTotal} active OSM stores were unseen this run ` +
+        `(>${(MAX_PRUNE_FRACTION * 100).toFixed(0)}% or nothing seen) — looks like an ` +
+        'incomplete extract, not a wave of closures. Left untouched.',
+    );
+    return 0;
+  }
+  const [row] = await sql<{ pruned: number }[]>`
+    WITH gone AS (
+      UPDATE stores SET confidence_level = 'excluded', updated_at = now()
+      WHERE source_name = ${OSM_SOURCE_NAME}
+        AND confidence_level <> 'excluded'
+        AND last_import_run_id IS DISTINCT FROM ${importRunId}
+      RETURNING id
+    )
+    SELECT count(*)::int AS pruned FROM gone
+  `;
+  const pruned = row?.pruned ?? 0;
+  log(`prune: hid ${pruned} OSM stores gone from the latest ingest (likely closed)`);
+  return pruned;
+}
+
+/**
  * Merge official municipal censos into the OSM canonical stores (ADR-007).
  * Matches ANY source named censo_<city> (Madrid today; Barcelona/Valencia/…
  * as adapters land). For each OSM store, find its nearest active censo record
@@ -226,7 +288,9 @@ async function enrichWithCenso(
         ORDER BY c.geom::geography <-> o.geom::geography, c.id
         LIMIT 1
       ) c
-      WHERE o.source_name = ${OSM_SOURCE_NAME}
+      -- Skip OSM stores already hidden (e.g. pruned as vanished): a ghost must
+      -- not flag itself 'oficial' or hide a censo row for a real business.
+      WHERE o.source_name = ${OSM_SOURCE_NAME} AND o.confidence_level <> 'excluded'
     ),
     merged AS (
       UPDATE stores o SET
@@ -262,12 +326,21 @@ async function enrichWithCenso(
 export async function persistOsmCanonical(
   sql: Sql,
   places: OsmPlace[],
-  opts: { sourceUrl: string; fileHash: string; rowCount: number; log: (m: string) => void },
+  opts: {
+    sourceUrl: string;
+    fileHash: string;
+    rowCount: number;
+    log: (m: string) => void;
+    // Hide stores no longer present in OSM. ONLY pass true for a full-coverage
+    // national ingest — see pruneVanishedOsmStores.
+    pruneStale?: boolean;
+  },
 ): Promise<{
   importRunId: number;
   byType: Record<string, number>;
   officialFlagged: number;
   censoExcluded: number;
+  pruned: number;
 }> {
   const [run] = await sql<{ id: number }[]>`
     INSERT INTO import_runs (source_name, source_url, status, file_hash)
@@ -279,6 +352,9 @@ export async function persistOsmCanonical(
   try {
     const byType = await bulkUpsertStores(sql, places, importRunId);
     opts.log(`upserted ${places.length} OSM stores`);
+    // Prune BEFORE enrichment so vanished ghosts can't participate in the censo
+    // merge. Only when the caller vouches for full national coverage.
+    const pruned = opts.pruneStale ? await pruneVanishedOsmStores(sql, importRunId, opts.log) : 0;
     const { officialFlagged, censoExcluded } = await enrichWithCenso(sql);
     opts.log(
       `Censo enrichment: ${officialFlagged} flagged 'oficial', ${censoExcluded} Censo dupes excluded`,
@@ -288,7 +364,7 @@ export async function persistOsmCanonical(
         row_count = ${opts.rowCount}, inserted_count = ${places.length}, updated_count = ${officialFlagged}
       WHERE id = ${importRunId}
     `;
-    return { importRunId, byType, officialFlagged, censoExcluded };
+    return { importRunId, byType, officialFlagged, censoExcluded, pruned };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await sql`UPDATE import_runs SET status='failed', finished_at=now(), error_message=${message} WHERE id=${importRunId}`;

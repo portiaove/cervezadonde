@@ -35,8 +35,12 @@ export type IngestOsmPbfSummary = {
   byType: Record<string, number>;
   officialFlagged: number;
   censoExcluded: number;
+  pruned: number;
   durationMs: number;
 };
+
+/** Regions whose extract covers the whole country — safe to prune stale stores. */
+const NATIONAL_REGIONS = new Set(['spain']);
 
 /** Docker mounts want forward-slash paths, even on Windows. */
 const dockerPath = (p: string): string => p.replace(/\\/g, '/');
@@ -216,10 +220,18 @@ export async function ingestOsmPbf(opts: {
   const withHours = places.filter((p) => p.openingHours).length;
   log(`parsed ${places.length} places (${withHours} with hours)`);
 
-  const { importRunId, byType, officialFlagged, censoExcluded } = await persistOsmCanonical(
+  const { importRunId, byType, officialFlagged, censoExcluded, pruned } = await persistOsmCanonical(
     sql,
     places,
-    { sourceUrl: url, fileHash: dl.hash, rowCount: places.length, log },
+    {
+      sourceUrl: url,
+      fileHash: dl.hash,
+      rowCount: places.length,
+      log,
+      // Only a whole-Spain extract sees every store, so only it can tell a
+      // vanished (closed) store from one that's simply out of the region.
+      pruneStale: NATIONAL_REGIONS.has(region),
+    },
   );
 
   return {
@@ -230,6 +242,7 @@ export async function ingestOsmPbf(opts: {
     byType,
     officialFlagged,
     censoExcluded,
+    pruned,
     durationMs: Date.now() - startedAt,
   };
 }
