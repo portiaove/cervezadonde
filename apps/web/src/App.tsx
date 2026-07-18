@@ -1,6 +1,6 @@
 import type { Cluster, MapStore, NearbyStore, Ordinance } from '@cervezadonde/shared';
 import type { StyleSpecification } from 'maplibre-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, {
   AttributionControl,
   Layer,
@@ -19,13 +19,35 @@ import {
   type Filters,
   type MetaResponse,
   fetchClusters,
+  fetchGeo,
   fetchMap,
   fetchMeta,
   fetchNearby,
 } from './api.js';
 import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
 
-const MADRID_CENTER = { lat: 40.4168, lng: -3.7038 };
+type InitialViewState = NonNullable<ComponentProps<typeof MapGL>['initialViewState']>;
+
+// The map opens roughly on the visitor's city (IP geolocation via /api/geo).
+// IP geo is city-level, so a slightly wider zoom shows the whole area rather
+// than an exact-but-approximate street.
+const IP_ZOOM = 12;
+
+// Fallback for visitors OUTSIDE Spain (or IPs without a city): frame the whole
+// country instead of dropping them in Manila or an arbitrary Madrid street.
+// Bounds (peninsula + Baleares) + fitBounds adapts to any viewport; Canarias is
+// left out on purpose — including it would zoom out over the Atlantic and shrink
+// the mainland to nothing (a visitor actually in Canarias gets their city by IP).
+const SPAIN_VIEW = {
+  bounds: [
+    [-9.5, 35.9],
+    [4.5, 43.9],
+  ] as [[number, number], [number, number]],
+  fitBoundsOptions: { padding: 24 },
+};
+
+// Don't let a slow/failed /geo call block first paint — fall back after this.
+const GEO_TIMEOUT_MS = 1200;
 
 // At or below this zoom the map shows server-aggregated count bubbles; above
 // it, individual coloured markers (the product's core view).
@@ -93,9 +115,37 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
+  // Initial map view, resolved from IP geolocation before the map mounts so
+  // there's no visible jump. A known Spanish city → {longitude,latitude,zoom};
+  // anyone else → SPAIN_VIEW (bounds). null → still deciding (brief).
+  const [initialView, setInitialView] = useState<InitialViewState | null>(null);
 
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+
+  // Pick the opening view once, from /api/geo, racing a short timeout so a slow
+  // API can never hold up first paint. A Spanish city centres there; everyone
+  // else (abroad, VPN, unknown, timeout, error) gets the whole-Spain view.
+  useEffect(() => {
+    let settled = false;
+    const settle = (view: InitialViewState) => {
+      if (settled) return;
+      settled = true;
+      setInitialView(view);
+    };
+    const timer = setTimeout(() => settle(SPAIN_VIEW), GEO_TIMEOUT_MS);
+    fetchGeo()
+      .then((g) => {
+        if (g.source === 'ip' && g.lat != null && g.lng != null) {
+          settle({ longitude: g.lng, latitude: g.lat, zoom: IP_ZOOM });
+        } else {
+          settle(SPAIN_VIEW);
+        }
+      })
+      .catch(() => settle(SPAIN_VIEW))
+      .finally(() => clearTimeout(timer));
+    return () => clearTimeout(timer);
+  }, []);
 
   const refreshFromMap = useCallback(async () => {
     const map = mapRef.current;
@@ -266,17 +316,19 @@ export function App() {
   const pointsData = useMemo(() => pointsToGeoJson(points), [points]);
   const empty = !loading && points.length === 0 && clusters.length === 0;
 
+  // Hold the map until the opening centre is decided (a few hundred ms at most)
+  // so it mounts directly on the visitor's city — no Madrid→city jump.
+  if (!initialView) {
+    return <div className="app app--booting" />;
+  }
+
   return (
     <div className="app">
       <MapGL
         ref={(r) => {
           mapRef.current = r;
         }}
-        initialViewState={{
-          latitude: MADRID_CENTER.lat,
-          longitude: MADRID_CENTER.lng,
-          zoom: 13,
-        }}
+        initialViewState={initialView}
         mapStyle={MAP_STYLE}
         attributionControl={false}
         onLoad={onLoad}

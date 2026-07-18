@@ -33,6 +33,12 @@ body,
   overflow: hidden;
 }
 
+/* Brief splash while the opening map centre is resolved (IP geolocation).
+   Light grey matches the Positron basemap so mounting the map is seamless. */
+.app--booting {
+  background: #eaeef2;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

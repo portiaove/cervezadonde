@@ -1,6 +1,7 @@
 import { closeSql } from '@cervezadonde/db';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
+import { registerGeoRoutes } from './routes/geo.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerStoresRoutes } from './routes/stores.js';
@@ -12,6 +13,9 @@ const webOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:5173';
 async function main() {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
+    // Behind Caddy (reverse_proxy), so read the client IP from X-Forwarded-For
+    // — the /geo endpoint needs the real visitor IP for approximate geolocation.
+    trustProxy: true,
   });
 
   await app.register(cors, {
@@ -21,6 +25,7 @@ async function main() {
 
   await app.register(registerHealthRoutes);
   await app.register(registerMetaRoutes);
+  await app.register(registerGeoRoutes);
   await app.register(registerStoresRoutes, { prefix: '/stores' });
 
   const shutdown = async (signal: string) => {

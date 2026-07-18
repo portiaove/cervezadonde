@@ -5,3 +5,5 @@
 data/
 .git
 apps/web/dist
+# 131 MB GeoIP DB — mounted into the api container as a volume, not baked in.
+deploy/geoip

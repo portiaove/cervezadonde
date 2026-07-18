@@ -89,6 +89,20 @@ export async function fetchMeta(): Promise<MetaResponse> {
   return (await res.json()) as MetaResponse;
 }
 
+/** Approximate, IP-based location for the initial map centre (city-level). */
+export type GeoResponse = {
+  lat: number | null;
+  lng: number | null;
+  city: string | null;
+  source: 'ip' | 'none';
+};
+
+export async function fetchGeo(): Promise<GeoResponse> {
+  const res = await fetch(`${API_URL}/geo`);
+  if (!res.ok) throw new Error(`geo failed: ${res.status}`);
+  return (await res.json()) as GeoResponse;
+}
+
 export async function fetchNearby(
   center: { lat: number; lng: number; radius_m?: number; limit?: number },
   filters: Filters = {},
