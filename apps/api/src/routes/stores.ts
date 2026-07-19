@@ -14,6 +14,7 @@ import {
 } from '@cervezadonde/shared';
 import type { FastifyInstance } from 'fastify';
 import { ORDINANCE, canSellBeerNow, isAlcoholTakeawayProhibited } from '../openNow.js';
+import { rankOpenByTrustThenDistance } from '../ranking.js';
 
 type SharedRow = {
   id: string;
@@ -33,6 +34,7 @@ type SharedRow = {
   confidence_level: NearbyStore['confidence_level'];
   confidence_score: number;
   is_chain: boolean;
+  verification: NearbyStore['verification'];
 };
 
 type NearbyRow = SharedRow & {
@@ -87,6 +89,17 @@ const hideChainsClause = (sql: Sql, hide: boolean) => (hide ? sql`AND s.is_chain
 const minConfidenceClause = (sql: Sql, level: NearbyStore['confidence_level'] | undefined) =>
   level ? sql`AND s.confidence_level::text = ${level}` : sql``;
 
+// Existence confidence, source-agnostic and national (see shared Verification):
+// OSM presence beats censo presence (OSM self-cleans; the censo lags closures),
+// and both together is strongest. Kept as one expression so /nearby and /map
+// classify identically.
+const verificationExpr = (sql: Sql) => sql`
+  CASE
+    WHEN s.source_name = 'osm' AND 'oficial' = ANY(s.badges) THEN 'verified'
+    WHEN s.source_name = 'osm'                               THEN 'mapped'
+    ELSE 'unverified'
+  END`;
+
 export async function registerStoresRoutes(app: FastifyInstance): Promise<void> {
   app.get('/nearby', async (req, reply) => {
     const parsed = NearbyQuery.safeParse(req.query);
@@ -139,7 +152,8 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.badges                                            AS badges,
         s.confidence_level                                  AS confidence_level,
         s.confidence_score                                  AS confidence_score,
-        s.is_chain                                          AS is_chain
+        s.is_chain                                          AS is_chain,
+        ${verificationExpr(sql)}                            AS verification
       FROM stores s, origin
       WHERE ST_DWithin(s.geom::geography, origin.g, ${radius_m})
         AND s.confidence_level <> 'excluded'
@@ -161,7 +175,14 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
     });
 
     if (open_now) {
-      results = results.filter((r) => r.open_now.sells_beer_now).slice(0, limit);
+      // "Nearest open beer" is a high-stakes answer: existence floor first
+      // (corroborated places before single-source censo-only), then distance —
+      // an unverified place only surfaces as an honest fallback. Browsing
+      // (open_now=false) keeps pure distance order. See ranking.ts / docs/16.
+      results = rankOpenByTrustThenDistance(results.filter((r) => r.open_now.sells_beer_now)).slice(
+        0,
+        limit,
+      );
     }
 
     const response: NearbyResponse = {
@@ -213,7 +234,8 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.badges               AS badges,
         s.confidence_level     AS confidence_level,
         s.confidence_score     AS confidence_score,
-        s.is_chain             AS is_chain
+        s.is_chain             AS is_chain,
+        ${verificationExpr(sql)} AS verification
       FROM stores s
       WHERE s.geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
         AND s.confidence_level <> 'excluded'

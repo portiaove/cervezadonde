@@ -77,6 +77,25 @@ export const OpenNowBlock = z.object({
 });
 export type OpenNowBlock = z.infer<typeof OpenNowBlock>;
 
+/**
+ * Existence confidence — how independently confirmed it is that a place is
+ * REAL and still there (distinct from `confidence_level`, which is
+ * classification confidence, and from `hours_source`, which is openness).
+ * Source-agnostic and national: derived from how many independent sources
+ * corroborate the place. See docs/16-existence-confidence.md.
+ *
+ * OSM presence outweighs censo presence: OSM is community-curated and self-
+ * cleans (a vanished place gets `posible_cerrado`), whereas an official censo
+ * lags real closures by months/years (its bias is false positives — showing
+ * shut premises as active).
+ */
+export const Verification = z.enum([
+  'verified', // in OSM AND confirmed by an official censo (`oficial`) — two independent sources
+  'mapped', // in OSM (a human mapped it), not in any official censo
+  'unverified', // only in an official censo, absent from OSM — single source, not independently confirmed
+]);
+export type Verification = z.infer<typeof Verification>;
+
 export const NearbyStore = z.object({
   id: z.string(),
   source_local_id: z.string().nullable(),
@@ -96,5 +115,6 @@ export const NearbyStore = z.object({
   confidence_score: z.number().int().min(0).max(100),
   is_chain: z.boolean(),
   open_now: OpenNowBlock,
+  verification: Verification,
 });
 export type NearbyStore = z.infer<typeof NearbyStore>;

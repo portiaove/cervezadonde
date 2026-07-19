@@ -1,5 +1,5 @@
 import type { NearbyStore } from '@cervezadonde/shared';
-import { INTENT_COLOR, directionsUrl, intentOf, subtitle } from './store-view.js';
+import { INTENT_COLOR, directionsUrl, intentOf, subtitle, unverifiedNote } from './store-view.js';
 
 const formatDistance = (m: number): string =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
@@ -29,6 +29,7 @@ export function NearestOpenCard({
   }
 
   const intent = intentOf(store);
+  const unverified = unverifiedNote(store);
   return (
     <div className="nearest">
       <button type="button" className="nearest__main" onClick={() => onSelect(store)}>
@@ -42,6 +43,7 @@ export function NearestOpenCard({
           {store.open_now.closes_at ? ` · hasta las ${store.open_now.closes_at}` : ''}
           {store.open_now.hours_source === 'estimated' ? ' · horario estimado' : ''}
         </span>
+        {unverified ? <span className="nearest__unverified">⚠️ {unverified}</span> : null}
       </button>
       <a
         className="nearest__go"

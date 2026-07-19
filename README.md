@@ -177,6 +177,7 @@ Each source's ingest only soft-deactivates its own rows.
 - [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
 - [`docs/14-roadmap.md`](./docs/14-roadmap.md) — next steps / handoff (UX, censos, ops, hours)
 - [`docs/15-observability.md`](./docs/15-observability.md) — ops: log rotation, uptime, analytics, recovery
+- [`docs/16-existence-confidence.md`](./docs/16-existence-confidence.md) — trust tiers (verified/mapped/unverified) + "nearest open" ranking
 - [`decisions/`](./decisions/) — ADR-001…007
 
 ## Attribution

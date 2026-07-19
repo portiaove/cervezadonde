@@ -68,9 +68,16 @@ export function subtitle(s: AnyStore): string {
 }
 
 /**
- * Cross-platform "cómo llegar" link. The Google Maps universal URL opens the
- * native maps app on iOS/Android and the web on desktop.
+ * Honest label when the "nearest open" answer is a fallback: a place that only
+ * exists in an official censo, not corroborated in OSM (existence not
+ * independently confirmed — it may have closed without the licence being
+ * deregistered). Returns null for verified/mapped places (nothing to flag).
  */
+export function unverifiedNote(s: NearbyStore): string | null {
+  return s.verification === 'unverified'
+    ? 'Sin confirmar — solo en el censo oficial, sin verificar en el mapa'
+    : null;
+}
 export function directionsUrl(s: { lat: number; lng: number }): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
 }
