@@ -69,7 +69,25 @@ To extend to other cities:
     ~1,298 matched OSM stores `oficial` and keeps **4,990 censo-only places**
     (3,045 high + 1,945 medium confidence) that OSM was missing across the
     province — national active total rose to ~188.7k.
-  - Remaining candidates: **Valencia**, **Zaragoza**, **Málaga**, **Sevilla**.
+  - **Andalucía (IECA): DONE** (`pnpm worker:ingest:andalucia`; the IECA/Junta
+    de Andalucía "Directorio de empresas y establecimientos con actividad
+    económica", CC BY 4.0). Covers the **8 provinces** (Sevilla, Málaga, Córdoba,
+    Granada, Almería, Cádiz, Huelva, Jaén) — the biggest censo yet. Ingested from
+    the **point-level WFS layer `estab_geo24`** (not the aggregated statistical
+    grid `gridestab24`), filtered server-side by CNAE and reprojected to WGS84 by
+    GeoServer (`sources/andalucia.ts`). Classification is a direct **CNAE-2009
+    code lookup** (like Barcelona city). **25,255 beer-relevant establishments**
+    (bar 16,239 · súper 4,963 · alim 3,858 · bodega 195) across 629 municipalities.
+    Enrichment flags **~6,676 matched OSM stores `oficial`** and keeps **18,579
+    censo-only places** (15,415 high + 3,164 medium) OSM was missing across the
+    region — national active total rose to **~207.3k**.
+    Caveat: the directory carries only the **razón social** (legal name), not the
+    trading name — so censo-only rows show e.g. "DEBA SARDA SL"; matched OSM stores
+    keep OSM's real name via the merge. No opening hours → `horario_no_confirmado`.
+  - Remaining candidates: **Zaragoza** (one clean big city; own portal, license +
+    format to verify). **Valencia** stays OSM-only (no point-level open data — only
+    aggregated by district). Málaga/Sevilla/Córdoba/Granada are now covered by the
+    Andalucía censo above.
 - This is **incremental polish**: OSM already covers these cities; the censo
   only adds the official confirmation + richer address/status.
 - Decide per city whether the adapter effort is worth the quality gain.
@@ -80,8 +98,8 @@ To extend to other cities:
 
 ### 3a. Weekly data refresh (automate) — ✅ DONE
 `scripts/refresh-all.ps1` runs the whole pipeline in order (Madrid + Barcelona
-city + Barcelona province censos → all-Spain OSM+enrichment → website hours
-crawl → `push-data.ps1`),
+city + Barcelona province + Andalucía censos → all-Spain OSM+enrichment →
+website hours crawl → `push-data.ps1`),
 logs each run to `logs/refresh-history.csv` + a transcript, and is scheduled
 with **Windows Task Scheduler** (`StartWhenAvailable`, no wake; runs only when
 logged on, catches up on next login). Setup command in

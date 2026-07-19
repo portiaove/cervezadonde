@@ -2,6 +2,7 @@ import { closeSql } from '@cervezadonde/db';
 import { Command } from 'commander';
 import { crawlHours } from './crawl-hours.js';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
+import { ingestAndalucia } from './ingest-andalucia.js';
 import { ingestBarcelona } from './ingest-barcelona.js';
 import { ingestDiba } from './ingest-diba.js';
 import { ingestMadrid } from './ingest-madrid.js';
@@ -86,6 +87,27 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:diba failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('ingest:andalucia')
+  .description(
+    'Download the IECA Andalusia establishments directory (8 provinces, point-level WFS), classify by CNAE, upsert.',
+  )
+  .option('--fresh', 'force re-download even if a cached copy exists', false)
+  .action(async (opts: { fresh?: boolean }) => {
+    try {
+      const summary = await ingestAndalucia({
+        fresh: opts.fresh,
+        log: (m) => console.error(m),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+    } catch (err) {
+      console.error('ingest:andalucia failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();

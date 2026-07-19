@@ -12,6 +12,7 @@
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",
     "ingest:diba": "tsx src/cli.ts ingest:diba",
+    "ingest:andalucia": "tsx src/cli.ts ingest:andalucia",
     "crawl:hours": "tsx src/cli.ts crawl:hours",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
     "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",

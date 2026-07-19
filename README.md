@@ -93,6 +93,7 @@ Load real data (OSM national base + official censos):
 pnpm worker:ingest:madrid                # Madrid Censo (official enrichment)
 pnpm worker:ingest:barcelona             # Barcelona city Censo (official enrichment)
 pnpm worker:ingest:diba                   # Barcelona province Censo / GIA (official enrichment)
+pnpm worker:ingest:andalucia              # Andalucía Censo / IECA, 8 provinces (official enrichment)
 pnpm worker:ingest:osm:pbf -r spain      # OSM canonical, all of Spain (via osmium)
 pnpm worker:crawl:hours                  # website schema.org opening hours (incremental)
 ```
@@ -110,6 +111,7 @@ Or run the whole weekly pipeline (all of the above) with one command — see
 | `pnpm worker:ingest:madrid [--limit N] [--fresh]` | Madrid Censo (official enrichment) |
 | `pnpm worker:ingest:barcelona [--fresh]` | Barcelona city Censo (official enrichment) |
 | `pnpm worker:ingest:diba [--fresh]` | Barcelona province Censo / GIA, 184 municipalities (official enrichment) |
+| `pnpm worker:ingest:andalucia [--fresh]` | Andalucía Censo / IECA, 8 provinces, point-level WFS (official enrichment) |
 | `pnpm worker:ingest:osm:pbf [-r region] [--fresh]` | OSM-canonical ingest from a Geofabrik pbf via osmium (national base, ADR-007) |
 | `pnpm worker:crawl:hours [-l N]` | Crawl business websites for schema.org opening hours (incremental) |
 | `pnpm worker:diagnose:madrid` | Report source-file shape, no DB writes |
@@ -148,9 +150,10 @@ Everything you run to keep it alive, in one place (detail in
 ## Source-name conventions
 
 - `osm` — OpenStreetMap canonical stores (the national base, ADR-007).
-- `censo_madrid` / `censo_barcelona` / `censo_diba` — official municipal/provincial
-  censos; matched OSM stores are flagged `oficial` and their duplicates hidden
-  (`excluded`). `censo_diba` is the Barcelona province GIA (184 municipalities).
+- `censo_madrid` / `censo_barcelona` / `censo_diba` / `censo_andalucia` — official
+  municipal/provincial/regional censos; matched OSM stores are flagged `oficial`
+  and their duplicates hidden (`excluded`). `censo_diba` is the Barcelona province
+  GIA (184 municipalities); `censo_andalucia` is the IECA directory (8 provinces).
 - `madrid_sample_fixture` — bundled fixture (offline dev).
 
 Each source's ingest only soft-deactivates its own rows.
@@ -180,9 +183,11 @@ Each source's ingest only soft-deactivates its own rows.
 
 Locales y horarios © OpenStreetMap contributors (base nacional). Enriquecido con
 datos oficiales del Portal de Datos Abiertos del Ayuntamiento de Madrid, del
-Cens d'activitats econòmiques en planta baixa (Open Data BCN, CC BY 4.0) y del
+Cens d'activitats econòmiques en planta baixa (Open Data BCN, CC BY 4.0), del
 Cens municipal d'activitats i establiments (GIA) de la Diputació de Barcelona
-(CC BY 4.0). Mapa base © OpenStreetMap contributors, © CARTO.
+(CC BY 4.0) y del Directorio de empresas y establecimientos con actividad
+económica en Andalucía (Instituto de Estadística y Cartografía de Andalucía,
+CC BY 4.0). Mapa base © OpenStreetMap contributors, © CARTO.
 
 La Ordenanza Municipal de Madrid no permite la venta de alcohol para llevar
 entre las 22:00 y las 09:00. La aplicación marca los establecimientos como
