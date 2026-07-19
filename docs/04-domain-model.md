@@ -93,6 +93,16 @@ A canonical, functional classification. Derived in the scorer from epigraph
 Chain status no longer drives exclusion. A Mercadona is `high` confidence
 and `is_chain = true`.
 
+## Existence confidence (`verification`) — a separate axis
+
+`confidence_level` says "how sure are we of the *classification*"; it says
+nothing about whether the place still physically exists. That is the
+**`verification`** axis (API-derived, not stored): `verified` (in OSM +
+confirmed by an official censo) | `mapped` (in OSM only) | `unverified`
+(censo-only — a licence register lags real closures by months/years, so these
+are single-source and unconfirmed). It gates the "nearest open" ranking and the
+hollow-marker rendering. Full rationale: [docs/16](./16-existence-confidence.md).
+
 ## Badges
 
 Display-layer flags. Order matters for UI rendering — first applicable wins.

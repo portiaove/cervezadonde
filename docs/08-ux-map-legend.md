@@ -36,28 +36,30 @@ Secondary (collapse under "más filtros"):
 
 ## Marker legend
 
-### By category (icon shape)
+### Implemented visual language (v3)
 
-- `bar` — drink glass icon
-- `supermercado` — basket icon
-- `alimentacion` — small shop icon
-- `bodega` — bottle icon
-- `tienda_24h` — clock icon
+Markers are circles; two axes plus an existence overlay:
 
-### By state (colour)
+**Fill = intent** (what you can do there):
 
-- **Abierto y puede vender cerveza ahora** — green
-- **Abierto pero no puede vender (ordenanza)** — amber with warning ring
-- **Cerrado ahora** — grey, lower opacity
-- **Horario no confirmado** — blue dashed outline
+- `barra` (para tomar) — burnt amber `#c2410c`
+- `lata` (para llevar) — blue `#1d4ed8`
 
-### Confidence
+**Ring = open-now state** (from `open_now` + `hours_source`):
 
-Marker radius scales with `confidence_level`:
+- **Puede venderte ahora (horario confirmado)** — green ring, radius 8
+- **Suele estar abierto (estimado)** — light-green ring, radius 8
+- **Abierto pero no puede vender (ordenanza)** — amber ring
+- **Horario no confirmado** — grey ring
+- **Cerrado ahora** — faded (low opacity), white ring
 
-- high → 8 px
-- medium → 6 px
-- low → 4 px (only shown when "mostrar posibles" is on)
+**Existence overlay** (`verification`, see
+[docs/16](./16-existence-confidence.md)): `unverified` places (censo-only,
+absent from OSM) render as a **hollow marker** — white centre with an
+intent-coloured outline — visually distinct from both solid-open and
+faded-closed, because *sin confirmar ≠ cerrado*. If an unverified place is
+closed right now, the closed treatment wins. The place card shows an amber
+caution box, and the MoreSheet legend explains the hollow swatch.
 
 ## Place card copy
 

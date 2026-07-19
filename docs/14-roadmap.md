@@ -151,6 +151,22 @@ logged on, catches up on next login). Setup command in
 
 ---
 
+## 4b. Data quality — existence confidence (docs/16)
+
+**Slices 1–2 DONE** (see [`docs/16-existence-confidence.md`](./16-existence-confidence.md)
+for the full design record): the source-agnostic `verification` axis
+(`verified`/`mapped`/`unverified`), trust-first ranking of the "nearest open"
+answer (existence floor → distance), hollow "sin confirmar" markers + place-card
+caution + legend. Motivated by censo-only places that closed months ago but
+still show as "Abierto" in the licence register (~18% of national actives are
+censo-only with no independent corroboration).
+
+**Pending — Slice 3, community feedback ("reportar cerrado" / "¿sigue aquí?"):**
+the durable fix — deactivates dead places, promotes unverified→corroborated, and
+feeds corrections back to OSM. Overlaps with §5 item 3 (one feedback build
+should serve both closures and hours). Open tuning: the existence floor is
+binary; add a distance cap if it ever sends people too far.
+
 ## 5. Opening-hours coverage — the big one (do after 1–4)
 
 The core product gap: only ~14% of stores have hours, so most of the map reads

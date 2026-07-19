@@ -26,16 +26,17 @@ finished serving tables to production — see
 by `place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
 `/stores/map` + `/stores/clusters` + `/stores/nearby` with filters, the OSM +
 censo + website-hours pipeline, and the web UI (time chip, lata/barra legend,
-intent filters, nearest-open card, street search). 142 Vitest cases green.
+intent filters, nearest-open card, street search). 180 Vitest cases green.
 
 | Area | State |
 |---|---|
 | Data model, ingestion, scoring, API, web UI | done |
-| Spain-wide coverage (OSM national base + Madrid/Barcelona censos) | done |
+| Spain-wide coverage (OSM national base + 4 official censos: Madrid, Barcelona city, Barcelona province/DIBA, Andalucía/IECA) | done |
 | Deployment (VPS) + one-command weekly refresh (`refresh-all.ps1`) + CI deploy | done |
-| **Opening-hours coverage** | ⚠️ ~13% (OSM + website crawl + estimated defaults) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
-| Community feedback loop for hours (contribute back to OSM) | next |
-| More city censos (Valencia, Zaragoza, …), store detail page | later |
+| Existence confidence (`verification`) — trust-first "nearest open" ranking + hollow "sin confirmar" markers | done — see [`docs/16-existence-confidence.md`](./docs/16-existence-confidence.md) |
+| **Opening-hours coverage** | ⚠️ ~14% (OSM + website crawl + estimated defaults) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
+| Community feedback loop ("reportar cerrado", hours; contribute back to OSM) | next |
+| More censos (Zaragoza; Valencia has no point-level open data), store detail page | later |
 
 ## Stack
 

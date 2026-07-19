@@ -77,12 +77,14 @@ Response shape:
       "is_chain": false,
       "confidence_level": "high",
       "confidence_score": 92,
+      "verification": "verified",
       "badges": ["bar", "abierto_ahora", "vende_cerveza_in_situ"],
       "open_now": {
         "open": true,
         "closes_at": "02:00",
         "sells_beer_now": true,
-        "reason": "Bar abierto en horario habitual."
+        "reason": "Bar abierto en horario habitual.",
+        "hours_source": "osm"
       },
       "sources": ["censo_madrid", "osm"]
     }
@@ -90,10 +92,23 @@ Response shape:
 }
 ```
 
+`verification` is the **existence-confidence axis** (see
+[docs/16](./16-existence-confidence.md)): `verified` (in OSM + confirmed by an
+official censo) | `mapped` (in OSM only) | `unverified` (censo-only, absent
+from OSM). Distinct from `confidence_level` (classification confidence) and
+`open_now.hours_source` (openness confidence).
+
+**Ordering:** with `open_now=true`, results are ranked **existence-floor first,
+then distance** — corroborated places (`verified`/`mapped`) come before
+`unverified` ones, so `limit=1` yields the nearest open place we can stand
+behind, and an unverified place only surfaces as a fallback. Without
+`open_now`, results are in pure distance order.
+
 ### GET `/stores/map`
 
 Returns individual stores inside map bounds (zoomed-in view). Same filters as
-`/nearby`. Trimmed payload — no `open_now.reason`, no `address`.
+`/nearby`. Trimmed payload — no `distance_m`, no `source_local_id`. Includes
+`verification` (drives the hollow "sin confirmar" marker rendering).
 
 Params: `north`, `south`, `east`, `west` (+ `limit`) plus the nearby filters.
 
