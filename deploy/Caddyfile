@@ -21,12 +21,27 @@
 	import /etc/caddy/conf.d/*.caddy
 
 	handle_path /api/* {
+		# Time-sensitive answers (open-now verdicts) — never cache.
+		header Cache-Control "no-store"
 		reverse_proxy api:3001
 	}
 
 	handle {
 		root * /srv/web
 		try_files {path} /index.html
+
+		# Vite assets are content-hashed (index-Bx50e8OR.js) → immutable:
+		# cache for a year, never re-downloaded until the hash changes.
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# index.html (and favicon etc.) must REVALIDATE on every navigation —
+		# the ETag makes that a cheap 304 — so a deploy is picked up on the
+		# next page load. Without this, browsers heuristically cache the old
+		# index.html, which points at the old bundle → stale tabs after deploys.
+		@rest not path /assets/*
+		header @rest Cache-Control "no-cache"
+
 		file_server
 	}
 }

@@ -55,6 +55,12 @@ Caddy obtains the TLS cert automatically once DNS resolves to the box. Check:
 curl -s https://cervezadonde.es/api/health   # -> {"ok":true}
 ```
 
+**Cache policy** (Caddyfile): hashed `/assets/*` are immutable (1 year);
+`index.html` and the rest are `no-cache` so every navigation revalidates via
+ETag (cheap 304) and a deploy shows up on the next page load — no stale tabs.
+`/api/*` is `no-store`. The deploy workflow reloads Caddy's config on every
+push (graceful, zero-downtime), so Caddyfile changes ship like code.
+
 ## 2. Weekly: refresh the data (the routine)
 
 All heavy work stays on your PC. The whole routine is **one script**:

@@ -67,3 +67,14 @@ jobs:
             docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
               exec -T api pnpm --filter @cervezadonde/db migrate up
           '
+
+      # Config must follow code too, same rule as migrations: `git pull` updates
+      # the bind-mounted Caddyfile but `compose up -d` won't restart caddy for
+      # it. Graceful zero-downtime reload; a no-op when the config is unchanged.
+      - name: Reload Caddy config
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.DEPLOY_HOST }}" '
+            cd /root/cervezadonde &&
+            docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
+              exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          '
