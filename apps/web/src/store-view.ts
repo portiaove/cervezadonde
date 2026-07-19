@@ -73,7 +73,7 @@ export function subtitle(s: AnyStore): string {
  * independently confirmed — it may have closed without the licence being
  * deregistered). Returns null for verified/mapped places (nothing to flag).
  */
-export function unverifiedNote(s: NearbyStore): string | null {
+export function unverifiedNote(s: Pick<NearbyStore, 'verification'>): string | null {
   return s.verification === 'unverified'
     ? 'Sin confirmar — solo en el censo oficial, sin verificar en el mapa'
     : null;

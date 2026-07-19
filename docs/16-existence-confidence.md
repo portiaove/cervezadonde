@@ -1,6 +1,6 @@
 # 16 · Existence confidence (¿existe de verdad?)
 
-Status: **Slice 1 shipped** (API `/nearby` + "nearest open" card). Slices 2–3 pending.
+Status: **Slices 1–2 shipped** (ranking + map rendering). Slice 3 (community feedback) pending.
 
 ## The problem
 
@@ -69,12 +69,23 @@ Risk to watch — **coverage bias**: peripheral/less-touristy areas are exactly
 where OSM maps worst and the real beer *is* the censo-only shop. We **label,
 never hide**, so those users still get an answer.
 
+## Map rendering (Slice 2 — shipped)
+
+`unverified` places render as a **hollow marker**: white centre with an
+intent-coloured outline (barra amber / lata blue) — instantly distinct from
+both the solid open marker and the faded "cerrado" one, because
+**unverified ≠ closed**. When an unverified place is closed right now, the
+closed treatment wins (night maps shouldn't highlight it). Implemented as
+`['case']` branches on the `verification` feature property in the
+`unclustered-point` paint (App.tsx); `StoreCard` shows an amber caution box
+("Sin confirmar… puede que ya no exista"), and the MoreSheet legend explains
+the hollow swatch. Verified headless (Playwright): mixed viewport rendered
+16 verified / 7 mapped / 29 unverified with correct visuals; clicking an
+unverified marker shows the note.
+
 ## Next slices
 
-2. **Map rendering** — a distinct third visual state for `unverified` (NOT the
-   greyed-out "cerrado" treatment — unverified ≠ closed) + a click note. The
-   `verification` field is already on `/map` for this.
 3. **Community feedback** ("¿sigue aquí? / cerrado") — the real cure: promotes
    `unverified`→corroborated or deactivates, and feeds corrections back to OSM.
-   The durable fix; ranking is the interim UX patch that makes today's data
-   honest.
+   The durable fix; ranking + rendering are the interim UX patch that makes
+   today's data honest.

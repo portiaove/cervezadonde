@@ -87,7 +87,7 @@ const pointsToGeoJson = (stores: MapStore[]): GeoJSON.FeatureCollection => ({
     type: 'Feature',
     id: s.id,
     geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
-    properties: { id: s.id, intent: intentOf(s), state: statusOf(s) },
+    properties: { id: s.id, intent: intentOf(s), state: statusOf(s), verification: s.verification },
   })),
 });
 
@@ -341,7 +341,7 @@ export function App() {
         <AttributionControl
           position="top-right"
           compact
-          customAttribution="Datos: Ayuntamiento de Madrid · Horarios de OSM"
+          customAttribution="Locales: © OSM + censos oficiales (Madrid, BCN, DIBA, Andalucía)"
         />
         {/* Individual coloured markers (zoomed in) — the product's core view. */}
         <Source id="points" type="geojson" data={pointsData}>
@@ -349,54 +349,111 @@ export function App() {
             id="unclustered-point"
             type="circle"
             paint={{
-              'circle-radius': ['match', ['get', 'state'], 'open', 8, 'estimated', 8, 6],
+              // 'unverified' (censo-only, not in OSM — see docs/16) renders as a
+              // HOLLOW marker: white centre, intent-coloured outline. Distinct
+              // from the faded "closed" look (unverified ≠ closed). When such a
+              // place is closed right now, the closed treatment wins (night maps
+              // shouldn't highlight it), hence the `!= closed` guard.
+              'circle-radius': [
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
+                6,
+                ['match', ['get', 'state'], 'open', 8, 'estimated', 8, 6],
+              ],
               'circle-color': [
-                'match',
-                ['get', 'intent'],
-                'barra',
-                INTENT_COLOR.barra,
-                'lata',
-                INTENT_COLOR.lata,
-                INTENT_COLOR.otro,
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
+                '#ffffff',
+                [
+                  'match',
+                  ['get', 'intent'],
+                  'barra',
+                  INTENT_COLOR.barra,
+                  'lata',
+                  INTENT_COLOR.lata,
+                  INTENT_COLOR.otro,
+                ],
               ],
               'circle-opacity': [
-                'match',
-                ['get', 'state'],
-                'open',
-                1,
-                'estimated',
-                0.95,
-                'ordinance',
-                0.9,
-                'unconfirmed',
-                0.5,
-                0.32,
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
+                0.92,
+                [
+                  'match',
+                  ['get', 'state'],
+                  'open',
+                  1,
+                  'estimated',
+                  0.95,
+                  'ordinance',
+                  0.9,
+                  'unconfirmed',
+                  0.5,
+                  0.32,
+                ],
               ],
               'circle-stroke-color': [
-                'match',
-                ['get', 'state'],
-                'open',
-                STATE_RING.open,
-                'estimated',
-                STATE_RING.estimated,
-                'ordinance',
-                STATE_RING.ordinance,
-                'unconfirmed',
-                STATE_RING.unconfirmed,
-                STATE_RING.closed,
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
+                [
+                  'match',
+                  ['get', 'intent'],
+                  'barra',
+                  INTENT_COLOR.barra,
+                  'lata',
+                  INTENT_COLOR.lata,
+                  INTENT_COLOR.otro,
+                ],
+                [
+                  'match',
+                  ['get', 'state'],
+                  'open',
+                  STATE_RING.open,
+                  'estimated',
+                  STATE_RING.estimated,
+                  'ordinance',
+                  STATE_RING.ordinance,
+                  'unconfirmed',
+                  STATE_RING.unconfirmed,
+                  STATE_RING.closed,
+                ],
               ],
               'circle-stroke-width': [
-                'match',
-                ['get', 'state'],
-                'open',
-                3,
-                'estimated',
-                2.5,
-                'ordinance',
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
                 2,
-                1,
+                ['match', ['get', 'state'], 'open', 3, 'estimated', 2.5, 'ordinance', 2, 1],
               ],
-              'circle-stroke-opacity': ['match', ['get', 'state'], 'open', 1, 'closed', 0.5, 0.85],
+              'circle-stroke-opacity': [
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'verification'], 'unverified'],
+                  ['!=', ['get', 'state'], 'closed'],
+                ],
+                0.9,
+                ['match', ['get', 'state'], 'open', 1, 'closed', 0.5, 0.85],
+              ],
             }}
           />
         </Source>

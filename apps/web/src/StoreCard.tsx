@@ -7,6 +7,7 @@ import {
   intentOf,
   statusOf,
   subtitle,
+  unverifiedNote,
 } from './store-view.js';
 
 type CardStore = MapStore | NearbyStore;
@@ -65,6 +66,13 @@ export function StoreCard({
       </div>
 
       <div className="meta reason">{store.open_now.reason}</div>
+
+      {unverifiedNote(store) ? (
+        <div className="unverified-note">
+          ⚠️ {unverifiedNote(store)}. Puede que ya no exista — si lo conoces, compruébalo antes de
+          ir.
+        </div>
+      ) : null}
 
       <div className="meta">
         {store.address ?? 'Dirección no disponible'}
