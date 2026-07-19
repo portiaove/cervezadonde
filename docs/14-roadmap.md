@@ -51,11 +51,24 @@ To extend to other cities:
 - **One adapter per city** (each open-data portal has its own schema): download
   + parse + map to the `stores` shape under `source_name='censo_<city>'`, same
   as `ingest-madrid.ts`.
-  - **Barcelona: DONE** (`pnpm worker:ingest:barcelona`; "Cens d'activitats
+  - **Barcelona city: DONE** (`pnpm worker:ingest:barcelona`; "Cens d'activitats
     econòmiques en planta baixa" 2024, CC BY 4.0). Classification is a direct
     activity-code lookup (`sources/barcelona.ts`) — far simpler than Madrid's
     epigraph heuristics. 12,963 beer-relevant premises; enrich flags ~8,258
     OSM stores `oficial` in BCN and keeps ~6,100 censo-only places.
+  - **Barcelona province (DIBA): DONE** (`pnpm worker:ingest:diba`; the GIA
+    "Cens municipal d'activitats i establiments" of the Diputació de Barcelona,
+    CC BY 4.0, served via the Socrata open-data portal so the full ~42k-row
+    dataset is downloadable — the `do.diba.cat` API caps at 1000 rows). Covers
+    the **184 municipalities of the province** (the metro belt; Barcelona *city*
+    is excluded — it has its own census above). GIA has no activity-code list,
+    so `sources/diba.ts` classifies conservatively by free-text Catalan activity
+    (word-token matching so `BAR` ≠ `BARBERIA`). **6,288 beer-relevant premises**
+    (bar 3,475 · alimentación 2,153 · súper 524 · bodega 136). No opening hours
+    in GIA, so every row carries `horario_no_confirmado`. Enrichment flags
+    ~1,298 matched OSM stores `oficial` and keeps **4,990 censo-only places**
+    (3,045 high + 1,945 medium confidence) that OSM was missing across the
+    province — national active total rose to ~188.7k.
   - Remaining candidates: **Valencia**, **Zaragoza**, **Málaga**, **Sevilla**.
 - This is **incremental polish**: OSM already covers these cities; the censo
   only adds the official confirmation + richer address/status.
@@ -67,7 +80,8 @@ To extend to other cities:
 
 ### 3a. Weekly data refresh (automate) — ✅ DONE
 `scripts/refresh-all.ps1` runs the whole pipeline in order (Madrid + Barcelona
-censos → all-Spain OSM+enrichment → website hours crawl → `push-data.ps1`),
+city + Barcelona province censos → all-Spain OSM+enrichment → website hours
+crawl → `push-data.ps1`),
 logs each run to `logs/refresh-history.csv` + a transcript, and is scheduled
 with **Windows Task Scheduler** (`StartWhenAvailable`, no wake; runs only when
 logged on, catches up on next login). Setup command in

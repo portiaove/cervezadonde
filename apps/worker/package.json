@@ -11,6 +11,7 @@
     "ingest:sample": "tsx src/cli.ts ingest:sample",
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",
+    "ingest:diba": "tsx src/cli.ts ingest:diba",
     "crawl:hours": "tsx src/cli.ts crawl:hours",
     "ingest:osm:region": "tsx src/cli.ts ingest:osm:region",
     "ingest:osm:pbf": "tsx src/cli.ts ingest:osm:pbf",

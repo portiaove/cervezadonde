@@ -65,23 +65,24 @@ function Get-Counts {
 }
 
 try {
-  Step "0/5 Ensure local PostGIS is up" { pnpm db:up }
-  Step "1/5 Madrid censo"               { pnpm worker:ingest:madrid }
-  Step "2/5 Barcelona censo"            { pnpm worker:ingest:barcelona }
+  Step "0/6 Ensure local PostGIS is up" { pnpm db:up }
+  Step "1/6 Madrid censo"               { pnpm worker:ingest:madrid }
+  Step "2/6 Barcelona city censo"       { pnpm worker:ingest:barcelona }
+  Step "3/6 Barcelona province censo (DIBA)" { pnpm worker:ingest:diba }
   if ($NoFreshPbf) {
-    Step "3/5 OSM Spain + censo enrichment" { pnpm worker:ingest:osm:pbf -r spain }
+    Step "4/6 OSM Spain + censo enrichment" { pnpm worker:ingest:osm:pbf -r spain }
   } else {
-    Step "3/5 OSM Spain + censo enrichment (fresh extract)" { pnpm worker:ingest:osm:pbf -r spain --fresh }
+    Step "4/6 OSM Spain + censo enrichment (fresh extract)" { pnpm worker:ingest:osm:pbf -r spain --fresh }
   }
   if ($SkipCrawl) {
-    Write-Host "`n=== 4/5 Website hours crawl SKIPPED (-SkipCrawl) ===" -ForegroundColor Yellow
+    Write-Host "`n=== 5/6 Website hours crawl SKIPPED (-SkipCrawl) ===" -ForegroundColor Yellow
   } else {
-    Step "4/5 Website hours crawl" { pnpm worker:crawl:hours }
+    Step "5/6 Website hours crawl" { pnpm worker:crawl:hours }
   }
   if ($NoPush) {
-    Write-Host "`n=== 5/5 Push to prod SKIPPED (-NoPush) ===" -ForegroundColor Yellow
+    Write-Host "`n=== 6/6 Push to prod SKIPPED (-NoPush) ===" -ForegroundColor Yellow
   } else {
-    Step "5/5 Push serving tables to prod" { & (Join-Path $PSScriptRoot "push-data.ps1") }
+    Step "6/6 Push serving tables to prod" { & (Join-Path $PSScriptRoot "push-data.ps1") }
     $pushed = "yes"
   }
 }

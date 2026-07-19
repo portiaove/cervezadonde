@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { crawlHours } from './crawl-hours.js';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
 import { ingestBarcelona } from './ingest-barcelona.js';
+import { ingestDiba } from './ingest-diba.js';
 import { ingestMadrid } from './ingest-madrid.js';
 import { ingestOsmCanonical } from './ingest-osm-canonical.js';
 import { ingestOsmPbf } from './ingest-osm-pbf.js';
@@ -64,6 +65,27 @@ program
       console.log(JSON.stringify(summary, null, 2));
     } catch (err) {
       console.error('ingest:barcelona failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('ingest:diba')
+  .description(
+    'Download the Barcelona-province GIA census (Diputació de Barcelona), classify, upsert.',
+  )
+  .option('--fresh', 'force re-download even if a cached copy exists', false)
+  .action(async (opts: { fresh?: boolean }) => {
+    try {
+      const summary = await ingestDiba({
+        fresh: opts.fresh,
+        log: (m) => console.error(m),
+      });
+      console.log(JSON.stringify(summary, null, 2));
+    } catch (err) {
+      console.error('ingest:diba failed:', err);
       process.exitCode = 1;
     } finally {
       await closeSql();
