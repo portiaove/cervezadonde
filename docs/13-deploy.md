@@ -134,20 +134,24 @@ setup — two repo secrets:
 
 ```powershell
 .\scripts\refresh-all.ps1      # full pipeline + push   (see §2, scheduled weekly)
-.\scripts\push-data.ps1        # push only: dump serving tables -> upload -> restore
+.\scripts\push-data.ps1        # push only: dump serving data -> upload -> restore
 ```
 
-`push-data.ps1` calls `deploy/restore-data.sh` on the VPS (truncate +
-`pg_restore` + count). `refresh-all.ps1` wraps the whole ingest then calls it.
-Both are scheduled/documented in §2.
+`push-data.ps1` calls `deploy/restore-data.sh` on the VPS. The restore validates
+the archive first, then replaces `import_runs`, `stores` and
+`store_activities` in one database transaction and verifies that every
+`last_import_run_id` resolves before committing. `refresh-all.ps1` wraps the
+whole ingest then calls it. Both are scheduled/documented in §2.
 
 ## Notes
 
 - Port 5432 is bound to `127.0.0.1` only. To poke the prod DB from your PC,
   use an SSH tunnel: `ssh -L 5432:localhost:5432 root@VPS_IP`.
 - The API runs under `tsx` (ADR-006). No build artifact to manage.
-- Only `stores` + `store_activities` ship to prod; the raw OSM/web enrichment
-  tables stay on your PC. Sequences drift harmlessly while the prod DB is
-  read-only; reset them if/when user-write features land.
+- Only `import_runs` + `stores` + `store_activities` ship to prod;
+  `import_runs` is required to preserve the stores foreign key and source
+  provenance. Chain patterns, staging and raw pipeline tables stay on your PC.
+  Sequences drift harmlessly while the prod DB is read-only; reset them
+  if/when user-write features land.
 - Backups: the `pgdata` volume is the only durable state, and the weekly dump
   is itself a recovery point — keep the last few.

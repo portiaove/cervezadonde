@@ -559,20 +559,22 @@ Migrations precede the API switch, so new SQL never observes the old schema.
 
 `refresh-all.ps1` builds local data, then `push-data.ps1`:
 
-1. runs `pg_dump --data-only` for `stores` and `store_activities`;
+1. runs `pg_dump --data-only` for `import_runs`, `stores` and
+   `store_activities`;
 2. copies the dump over SSH;
-3. production truncates both tables;
-4. `pg_restore` inserts the new snapshot.
+3. production renders and validates the archive SQL;
+4. one transaction truncates and restores all three tables, validates import
+   provenance, and commits the new snapshot.
 
-The restore is **not transactional or atomic**. An API request can observe an
-empty/partial database, and a restore failure after truncate leaves production
-without its previous serving snapshot. The production script also hardcodes
-the `cervezadonde` database/user while compose otherwise accepts environment
+The restore is atomic: readers cannot observe an empty/partial snapshot, and a
+failed restore rolls the transaction back. Requests may wait briefly for the
+replacement transaction to commit. The production script still hardcodes the
+`cervezadonde` database/user while compose otherwise accepts environment
 values.
 
-Only serving tables travel. `import_runs`, chain patterns and raw pipeline
-artifacts stay local. `last_import_run_id` values restored with disabled
-triggers can therefore point to import runs absent in production.
+Only serving data and its required `import_runs` provenance travel. Chain
+patterns and raw pipeline artifacts stay local. The restore rejects dangling
+`last_import_run_id` references before committing.
 
 ### Runtime
 

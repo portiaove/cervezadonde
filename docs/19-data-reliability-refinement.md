@@ -1,7 +1,7 @@
 # 19 · Precision-first data refinement
 
-Status: implemented and applied to the local PostGIS snapshot on 2026-07-29.
-Production has not been modified by this work.
+Status: implemented and applied locally on 2026-07-29; deployed to production
+the same day with the refreshed national snapshot recorded in section 9.
 
 This document records the evidence, policy and measured effect of replacing
 the proximity-only OSM↔censo merge. It supersedes the serving/matching policy
@@ -272,7 +272,31 @@ re-enable censo-only serving without an explicit new evidence policy.
 
 ## 9. Production publication
 
-This audit changed only the local database and repository. Before production:
+Production publication completed on 2026-07-29 after the full local refresh.
+The deployed snapshot passed these checks:
+
+| Measure | Production |
+|---|---:|
+| Physical rows | 230,819 |
+| Published rows | 170,032 |
+| Published non-OSM rows | 0 |
+| Accepted censo matches | 8,585 |
+| Rows with OSM or website hours | 29,696 |
+| Import runs | 40 |
+| Store activities | 21,942 |
+| Orphaned `last_import_run_id` values | 0 |
+
+`/api/health/db` and `/api/meta` responded successfully. Nearby probes in
+Madrid, Barcelona, Sevilla and Bilbao each returned a published OSM-backed
+result; none returned the backwards-compatible `unverified` tier.
+
+The publication incident that preceded the successful restore exposed two
+delivery defects: production did not contain the `import_runs` referenced by
+stores, and the PowerShell wrapper ignored a failed `pg_restore` after
+truncation. The publication path now includes `import_runs`, checks native exit
+codes, and restores all serving data in one validated transaction.
+
+The production checklist remains:
 
 1. review the code/data diff and final audit output;
 2. deploy the migrations and worker/API code;

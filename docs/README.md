@@ -41,7 +41,7 @@ For executable truth, use this order:
 | `10-delivery-plan.md` | Project history | Phases and counts are historical |
 | `11-runbook.md` | Useful commands and SQL ideas | Contains stale cadence, source list, cache paths, and an unsafe `--limit` suggestion |
 | `12-hours-data-sources.md` | Hours-source research | Measured snapshot, not a guaranteed roadmap |
-| `13-deploy.md` | Production runbook | The restore is currently truncate-then-restore, not atomic |
+| `13-deploy.md` | Production runbook | Current atomic serving-snapshot publication |
 | `14-roadmap.md` | Handoff/history and accumulated ideas | Counts and “next” ordering are snapshots, not approved priorities |
 | `15-observability.md` | Current ops design | Some external setup is manual and cannot be inferred from the repo |
 | `16-existence-confidence.md` | Historical censo-only fallback UX | Superseded by document 19; `unverified` is retained only for API compatibility |
