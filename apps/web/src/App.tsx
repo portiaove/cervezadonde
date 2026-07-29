@@ -349,28 +349,22 @@ export function App() {
             id="unclustered-point"
             type="circle"
             paint={{
-              // 'unverified' (censo-only, not in OSM — see docs/16) renders as a
-              // HOLLOW marker: white centre, intent-coloured outline. Distinct
-              // from the faded "closed" look (unverified ≠ closed). When such a
-              // place is closed right now, the closed treatment wins (night maps
-              // shouldn't highlight it), hence the `!= closed` guard.
+              // 'unverified' (censo-only, not in OSM — see docs/16) ALWAYS
+              // renders as a HOLLOW marker: white centre, intent-coloured
+              // outline. The SHAPE carries the existence axis ("may not
+              // exist"), independent of the hour — a closed-unverified place
+              // must never look like a confirmed-closed solid one. BRIGHTNESS
+              // carries the open/closed axis: when closed right now the hollow
+              // marker dims, so night maps still don't highlight it.
               'circle-radius': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
+                ['==', ['get', 'verification'], 'unverified'],
                 6,
                 ['match', ['get', 'state'], 'open', 8, 'estimated', 8, 6],
               ],
               'circle-color': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
+                ['==', ['get', 'verification'], 'unverified'],
                 '#ffffff',
                 [
                   'match',
@@ -384,12 +378,8 @@ export function App() {
               ],
               'circle-opacity': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
-                0.92,
+                ['==', ['get', 'verification'], 'unverified'],
+                ['case', ['==', ['get', 'state'], 'closed'], 0.35, 0.92],
                 [
                   'match',
                   ['get', 'state'],
@@ -406,11 +396,7 @@ export function App() {
               ],
               'circle-stroke-color': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
+                ['==', ['get', 'verification'], 'unverified'],
                 [
                   'match',
                   ['get', 'intent'],
@@ -436,22 +422,14 @@ export function App() {
               ],
               'circle-stroke-width': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
+                ['==', ['get', 'verification'], 'unverified'],
                 2,
                 ['match', ['get', 'state'], 'open', 3, 'estimated', 2.5, 'ordinance', 2, 1],
               ],
               'circle-stroke-opacity': [
                 'case',
-                [
-                  'all',
-                  ['==', ['get', 'verification'], 'unverified'],
-                  ['!=', ['get', 'state'], 'closed'],
-                ],
-                0.9,
+                ['==', ['get', 'verification'], 'unverified'],
+                ['case', ['==', ['get', 'state'], 'closed'], 0.45, 0.9],
                 ['match', ['get', 'state'], 'open', 1, 'closed', 0.5, 0.85],
               ],
             }}

@@ -11,7 +11,8 @@ takeaway alcohol between 22:00 and 09:00
 
 Built on OpenStreetMap (national POI base) enriched with official municipal
 censos (Madrid, Barcelona) + PostGIS + a deterministic scoring model.
-**No Google Maps** ([ADR-003](./decisions/ADR-003-no-google-scraping.md)).
+**No Google Maps/Places as a data source** (a directions link is user-facing,
+not ingested data; [ADR-003](./decisions/ADR-003-no-google-scraping.md)).
 
 **Live, Spain-wide:** deployed at [cervezadonde.es](https://cervezadonde.es) on
 a single VPS (PostGIS + API + Caddy). The data pipeline runs locally and ships
@@ -22,11 +23,18 @@ finished serving tables to production — see
 
 ## Status
 
-**The app is built and live end-to-end across Spain:** ~177k stores classified
+**The app is built and live end-to-end across Spain:** ~207k active stores classified
 by `place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
 `/stores/map` + `/stores/clusters` + `/stores/nearby` with filters, the OSM +
 censo + website-hours pipeline, and the web UI (time chip, lata/barra legend,
-intent filters, nearest-open card, street search). 180 Vitest cases green.
+intent filters, nearest-open card, street search). Snapshot: 2026-07-19; 180
+Vitest cases green.
+
+Known truthfulness boundary: the time/ordinance engine still applies
+`Europe/Madrid` and Madrid's 22:00–09:00 takeaway rule to every Spanish
+location. The current system and data-identity caveats are mapped in
+[`docs/17-project-atlas.md`](./docs/17-project-atlas.md) and
+[`docs/18-data-quality-atlas.md`](./docs/18-data-quality-atlas.md).
 
 | Area | State |
 |---|---|
@@ -161,7 +169,10 @@ Each source's ingest only soft-deactivates its own rows.
 
 ## Project docs
 
-- [`docs/00-overview.md`](./docs/00-overview.md) — **architecture overview (start here, with diagrams)**
+- [`docs/17-project-atlas.md`](./docs/17-project-atlas.md) — **current product/system atlas (start here)**
+- [`docs/18-data-quality-atlas.md`](./docs/18-data-quality-atlas.md) — **truth model, empirical audit and false-positive paths**
+- [`docs/README.md`](./docs/README.md) — documentation authority and supersession map
+- [`docs/00-overview.md`](./docs/00-overview.md) — earlier architecture overview (partly historical)
 - [`BLUEPRINT.md`](./BLUEPRINT.md) — product blueprint
 - [`docs/01-product.md`](./docs/01-product.md) — product definition
 - [`docs/02-data-strategy.md`](./docs/02-data-strategy.md) — Censo + OSM

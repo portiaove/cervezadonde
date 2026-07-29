@@ -1,5 +1,10 @@
 # cervezadonde.es — Blueprint
 
+> Historical document: this is the original Madrid MVP blueprint. The product
+> is now live Spain-wide. Use [`docs/17-project-atlas.md`](./docs/17-project-atlas.md)
+> for current reality and [`docs/README.md`](./docs/README.md) for the
+> supersession map.
+
 ## 1. Executive summary
 
 A Madrid-only mobile-first web map answering one question:

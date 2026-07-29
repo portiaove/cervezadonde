@@ -71,17 +71,19 @@ never hide**, so those users still get an answer.
 
 ## Map rendering (Slice 2 — shipped)
 
-`unverified` places render as a **hollow marker**: white centre with an
-intent-coloured outline (barra amber / lata blue) — instantly distinct from
-both the solid open marker and the faded "cerrado" one, because
-**unverified ≠ closed**. When an unverified place is closed right now, the
-closed treatment wins (night maps shouldn't highlight it). Implemented as
-`['case']` branches on the `verification` feature property in the
-`unclustered-point` paint (App.tsx); `StoreCard` shows an amber caution box
-("Sin confirmar… puede que ya no exista"), and the MoreSheet legend explains
-the hollow swatch. Verified headless (Playwright): mixed viewport rendered
-16 verified / 7 mapped / 29 unverified with correct visuals; clicking an
-unverified marker shows the note.
+`unverified` places **always** render as a **hollow marker**: white centre
+with an intent-coloured outline (barra amber / lata blue). The two visual
+axes never mix: **shape** carries existence (hollow = "may not exist",
+whatever the hour), **brightness** carries open-now (a closed-unverified
+place stays hollow but *dims*, so night maps don't highlight it). Refined
+after maintainer feedback: the first cut let the closed treatment win, which
+made a closed-unverified place indistinguishable from a confirmed-closed
+solid one — while its card showed the amber caution, a confusing mismatch.
+Implemented as `['case']` branches on the `verification` feature property in
+the `unclustered-point` paint (App.tsx); `StoreCard` shows an amber caution
+box ("Sin confirmar… puede que ya no exista"), and the MoreSheet legend
+explains the hollow swatch. Verified headless (Playwright): mixed viewport
+rendered the three treatments; clicking an unverified marker shows the note.
 
 ## Next slices
 

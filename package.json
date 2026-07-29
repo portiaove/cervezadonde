@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "cervezadonde.es — find the nearest open beer in Madrid (lata or barra), honouring opening hours and the municipal alcohol ordinance.",
+  "description": "cervezadonde.es — find the nearest beer in Spain (lata or barra), with explicit hours and data confidence.",
   "engines": {
     "node": ">=20.10.0",
     "pnpm": ">=9.0.0"

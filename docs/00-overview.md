@@ -2,6 +2,11 @@
 
 How cervezadonde.es fits together, end to end. Start here.
 
+> This overview predates several national-data changes and still mentions the
+> removed `store_osm_enrichment` table. Start with
+> [`17-project-atlas.md`](./17-project-atlas.md); keep this document as the
+> earlier architecture narrative.
+
 > One-liner: a mobile-first map that answers **"¿dónde está la cerveza abierta
 > más cercana ahora?"** — distinguishing **barra** (para tomar) from **lata**
 > (para llevar), honouring opening hours and Madrid's 22:00–09:00 ordinance.
