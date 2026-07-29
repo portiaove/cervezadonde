@@ -8,9 +8,10 @@ Spain-wide system that is actually running.
 
 | Document | Role | Authority |
 |---|---|---|
+| [`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md) | Precision-first serving, high-confidence matching and measured before/after | **Current data-serving policy** |
 | [`17-project-atlas.md`](./17-project-atlas.md) | Current product, architecture, flows, API, operations, risks | **Canonical orientation** |
 | [`18-data-quality-atlas.md`](./18-data-quality-atlas.md) | Truth model, empirical audit, false-positive paths, investigation queries | **Canonical data-quality reference** |
-| [`16-existence-confidence.md`](./16-existence-confidence.md) | Current `verification` UX and trust-first ranking | Current, narrower design record |
+| [`16-existence-confidence.md`](./16-existence-confidence.md) | Historical censo-only fallback UX | Superseded by document 19 |
 | [`13-deploy.md`](./13-deploy.md) | Production topology and manual operations | Current with caveats listed in the atlas |
 | [`15-observability.md`](./15-observability.md) | Logs, analytics, uptime and recovery | Current operations reference |
 | [`12-hours-data-sources.md`](./12-hours-data-sources.md) | Hours research and measured website-crawl yield | Current research record |
@@ -19,7 +20,7 @@ For executable truth, use this order:
 
 1. migrations and running code;
 2. shared Zod schemas in `packages/shared`;
-3. the current atlas documents above;
+3. document 19 and the current atlas documents above;
 4. accepted ADRs;
 5. older product and delivery plans.
 
@@ -43,7 +44,10 @@ For executable truth, use this order:
 | `13-deploy.md` | Production runbook | The restore is currently truncate-then-restore, not atomic |
 | `14-roadmap.md` | Handoff/history and accumulated ideas | Counts and “next” ordering are snapshots, not approved priorities |
 | `15-observability.md` | Current ops design | Some external setup is manual and cannot be inferred from the repo |
-| `16-existence-confidence.md` | Current existence UX | `verified` currently rests on proximity-only matching; see data-quality atlas |
+| `16-existence-confidence.md` | Historical censo-only fallback UX | Superseded by document 19; `unverified` is retained only for API compatibility |
+
+The censo-only fallback and proximity-only `verified` policy in documents 16–18
+was superseded on 2026-07-29 by document 19 and ADR-008.
 
 ## ADR status map
 
@@ -56,6 +60,7 @@ For executable truth, use this order:
 | ADR-005 OSM hours | Principle active; Overpass/enrichment-table implementation superseded by ADR-007 and migration `0009` |
 | ADR-006 local pipeline + single VPS | Active |
 | ADR-007 OSM national canonical | Active |
+| ADR-008 precision-first censo serving | Active |
 
 Historical documents are valuable: they explain why the system evolved. They
 are not deleted or silently rewritten into a history that never happened.

@@ -1,6 +1,10 @@
 # 16 · Existence confidence (¿existe de verdad?)
 
-Status: **Slices 1–2 shipped** (ranking + map rendering). Slice 3 (community feedback) pending.
+Status: historical design for the censo-only fallback. Superseded on 2026-07-29
+by the precision-first OSM-only serving policy in
+[`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md) and
+ADR-008. `unverified` remains in the API enum for compatibility but is no
+longer published.
 
 ## The problem
 

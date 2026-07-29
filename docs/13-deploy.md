@@ -70,8 +70,9 @@ All heavy work stays on your PC. The whole routine is **one script**:
 ```
 
 It runs the pipeline in the correct order — Madrid + Barcelona censos, then
-all-Spain OSM (which re-applies the censo enrichment), then the website hours
-crawl — and finally pushes the serving tables to the VPS. Every run appends a
+all-Spain OSM (which rebuilds the high-precision censo evidence relation),
+then the website hours crawl — and finally pushes the serving tables to the
+VPS. Every run appends a
 row to `logs\refresh-history.csv` (start, end, duration, status, counts) and a
 full transcript to `logs\refresh-*.log`. Flags: `-NoPush` (rebuild locally
 only), `-SkipCrawl`, `-NoFreshPbf` (reuse the cached 1.4 GB Geofabrik extract).
@@ -102,7 +103,12 @@ use `.\scripts\push-data.ps1` (dump serving tables → scp → restore on the VP
 ```bash
 # on the server
 cd ~/cervezadonde && git pull
-docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod build api
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
+  run --rm -T api pnpm --filter @cervezadonde/db migrate up
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
+  run --rm -T api pnpm --filter @cervezadonde/worker refine:censo-matches
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d
 # for web/UI changes, rebuild dist on your PC and re-scp to deploy/web-dist/
 ```
 
@@ -113,8 +119,12 @@ Two flows, deliberately separate (ADR-006): **code** deploys from GitHub,
 
 ### Code — GitHub Actions (`.github/workflows/deploy.yml`)
 
-Every push to `main` builds the web and redeploys (web build + `git pull` +
-`docker compose up -d --build`). One-time setup — two repo secrets:
+Every push to `main` builds the web, builds the new API image, runs migrations
+and the idempotent censo-refinement pass through one-off containers while the
+old API remains live, and only then recreates services. A migration that clears
+legacy mixed-provenance addresses deliberately prefers missing addresses until
+the next full local OSM refresh/push restores canonical OSM values. One-time
+setup — two repo secrets:
 
 - `DEPLOY_SSH_KEY` — a private key whose public half is in the VPS
   `~/.ssh/authorized_keys` (use a dedicated deploy key, no passphrase).

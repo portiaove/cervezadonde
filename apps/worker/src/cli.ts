@@ -1,5 +1,6 @@
 import { closeSql } from '@cervezadonde/db';
 import { Command } from 'commander';
+import { applyCensoRefinement, auditCensoMatches } from './censo-refinement.js';
 import { crawlHours } from './crawl-hours.js';
 import { diagnoseMadrid, summarizeDiagnose } from './diagnose-madrid.js';
 import { ingestAndalucia } from './ingest-andalucia.js';
@@ -13,6 +14,34 @@ import { ingestSample } from './ingest-sample.js';
 const program = new Command();
 
 program.name('cervezadonde-worker').description('Ingestion jobs for cervezadonde.es');
+
+program
+  .command('audit:censo-matches')
+  .description('Measure the high-precision OSM↔censo policy without changing data.')
+  .action(async () => {
+    try {
+      console.log(JSON.stringify(await auditCensoMatches(), null, 2));
+    } catch (err) {
+      console.error('audit:censo-matches failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('refine:censo-matches')
+  .description('Apply high-precision OSM↔censo matching and hide uncorroborated census rows.')
+  .action(async () => {
+    try {
+      console.log(JSON.stringify(await applyCensoRefinement(), null, 2));
+    } catch (err) {
+      console.error('refine:censo-matches failed:', err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
 
 program
   .command('ingest:sample')

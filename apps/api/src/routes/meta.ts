@@ -16,10 +16,15 @@ export async function registerMetaRoutes(app: FastifyInstance): Promise<void> {
         }[]
       >`
         SELECT
-          GREATEST(MAX(last_seen_osm_at), MAX(last_seen_in_official_source_at)) AS data_updated_at,
-          count(*) FILTER (WHERE confidence_level <> 'excluded')                AS active_stores,
+          MAX(last_seen_osm_at) FILTER (
+            WHERE is_published AND confidence_level <> 'excluded'
+          )                                                                     AS data_updated_at,
           count(*) FILTER (
-            WHERE confidence_level <> 'excluded'
+            WHERE is_published AND confidence_level <> 'excluded'
+          )                                                                     AS active_stores,
+          count(*) FILTER (
+            WHERE is_published
+              AND confidence_level <> 'excluded'
               AND (opening_hours_osm IS NOT NULL OR opening_hours_web IS NOT NULL)
           )                                                                     AS stores_with_hours
         FROM stores

@@ -78,11 +78,11 @@ export const OpenNowBlock = z.object({
 export type OpenNowBlock = z.infer<typeof OpenNowBlock>;
 
 /**
- * Existence confidence — how independently confirmed it is that a place is
- * REAL and still there (distinct from `confidence_level`, which is
- * classification confidence, and from `hours_source`, which is openness).
- * Source-agnostic and national: derived from how many independent sources
- * corroborate the place. See docs/16-existence-confidence.md.
+ * Source corroboration — whether independent datasets agree on the identity
+ * of a place (distinct from `confidence_level`, which is classification
+ * confidence, and from `hours_source`, which is openness). It is not proof
+ * that the business still trades today: OSM and official censos can both lag
+ * a closure. See docs/19-data-reliability-refinement.md.
  *
  * OSM presence outweighs censo presence: OSM is community-curated and self-
  * cleans (a vanished place gets `posible_cerrado`), whereas an official censo
@@ -90,9 +90,9 @@ export type OpenNowBlock = z.infer<typeof OpenNowBlock>;
  * shut premises as active).
  */
 export const Verification = z.enum([
-  'verified', // in OSM AND confirmed by an official censo (`oficial`) — two independent sources
+  'verified', // identity corroborated by OSM + a high-precision censo match
   'mapped', // in OSM (a human mapped it), not in any official censo
-  'unverified', // only in an official censo, absent from OSM — single source, not independently confirmed
+  'unverified', // legacy API value; censo-only rows are no longer published
 ]);
 export type Verification = z.infer<typeof Verification>;
 

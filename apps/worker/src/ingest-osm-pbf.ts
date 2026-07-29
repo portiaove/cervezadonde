@@ -34,7 +34,7 @@ export type IngestOsmPbfSummary = {
   withHours: number;
   byType: Record<string, number>;
   officialFlagged: number;
-  censoExcluded: number;
+  censoMatched: number;
   pruned: number;
   durationMs: number;
 };
@@ -220,7 +220,7 @@ export async function ingestOsmPbf(opts: {
   const withHours = places.filter((p) => p.openingHours).length;
   log(`parsed ${places.length} places (${withHours} with hours)`);
 
-  const { importRunId, byType, officialFlagged, censoExcluded, pruned } = await persistOsmCanonical(
+  const { importRunId, byType, officialFlagged, censoMatched, pruned } = await persistOsmCanonical(
     sql,
     places,
     {
@@ -241,7 +241,7 @@ export async function ingestOsmPbf(opts: {
     withHours,
     byType,
     officialFlagged,
-    censoExcluded,
+    censoMatched,
     pruned,
     durationMs: Date.now() - startedAt,
   };

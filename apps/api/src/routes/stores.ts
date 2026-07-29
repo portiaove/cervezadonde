@@ -89,14 +89,15 @@ const hideChainsClause = (sql: Sql, hide: boolean) => (hide ? sql`AND s.is_chain
 const minConfidenceClause = (sql: Sql, level: NearbyStore['confidence_level'] | undefined) =>
   level ? sql`AND s.confidence_level::text = ${level}` : sql``;
 
-// Existence confidence, source-agnostic and national (see shared Verification):
-// OSM presence beats censo presence (OSM self-cleans; the censo lags closures),
-// and both together is strongest. Kept as one expression so /nearby and /map
-// classify identically.
+// Source corroboration for published rows (see shared Verification). The
+// serving policy publishes only OSM-backed places; `verified` means the OSM
+// identity also has persisted high-precision one-to-one censo provenance. It
+// does not claim that either source proves present-day activity.
+// `unverified` remains in the contract for backward compatibility.
 const verificationExpr = (sql: Sql) => sql`
   CASE
-    WHEN s.source_name = 'osm' AND 'oficial' = ANY(s.badges) THEN 'verified'
-    WHEN s.source_name = 'osm'                               THEN 'mapped'
+    WHEN s.source_name = 'osm' AND s.matched_censo_source IS NOT NULL THEN 'verified'
+    WHEN s.source_name = 'osm'                                          THEN 'mapped'
     ELSE 'unverified'
   END`;
 
@@ -137,9 +138,9 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.id::text                                          AS id,
         s.source_local_id                                   AS source_local_id,
         s.name                                              AS name,
-        s.address                                           AS address,
-        s.district                                          AS district,
-        s.neighbourhood                                     AS neighbourhood,
+        COALESCE(NULLIF(s.address, ''), NULLIF(c.address, '')) AS address,
+        COALESCE(s.district, c.district)                    AS district,
+        COALESCE(s.neighbourhood, c.neighbourhood)          AS neighbourhood,
         ST_X(s.geom)::float8                                AS lng,
         ST_Y(s.geom)::float8                                AS lat,
         ST_Distance(s.geom::geography, origin.g)::float8    AS distance_m,
@@ -154,8 +155,13 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.confidence_score                                  AS confidence_score,
         s.is_chain                                          AS is_chain,
         ${verificationExpr(sql)}                            AS verification
-      FROM stores s, origin
+      FROM stores s
+      LEFT JOIN stores c
+        ON c.source_name = s.matched_censo_source
+       AND c.source_local_id = s.matched_censo_local_id
+      CROSS JOIN origin
       WHERE ST_DWithin(s.geom::geography, origin.g, ${radius_m})
+        AND s.is_published
         AND s.confidence_level <> 'excluded'
         ${intentClause(sql, intent)}
         ${placeTypeClause(sql, place_type)}
@@ -175,10 +181,8 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
     });
 
     if (open_now) {
-      // "Nearest open beer" is a high-stakes answer: existence floor first
-      // (corroborated places before single-source censo-only), then distance —
-      // an unverified place only surfaces as an honest fallback. Browsing
-      // (open_now=false) keeps pure distance order. See ranking.ts / docs/16.
+      // All published rows are OSM-backed under ADR-008. Keep the trust sorter
+      // for API compatibility with legacy `unverified` values, then distance.
       results = rankOpenByTrustThenDistance(results.filter((r) => r.open_now.sells_beer_now)).slice(
         0,
         limit,
@@ -220,9 +224,9 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
       SELECT
         s.id::text             AS id,
         s.name                 AS name,
-        s.address              AS address,
-        s.district             AS district,
-        s.neighbourhood        AS neighbourhood,
+        COALESCE(NULLIF(s.address, ''), NULLIF(c.address, '')) AS address,
+        COALESCE(s.district, c.district) AS district,
+        COALESCE(s.neighbourhood, c.neighbourhood) AS neighbourhood,
         ST_X(s.geom)::float8   AS lng,
         ST_Y(s.geom)::float8   AS lat,
         s.primary_category     AS primary_category,
@@ -237,7 +241,11 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.is_chain             AS is_chain,
         ${verificationExpr(sql)} AS verification
       FROM stores s
+      LEFT JOIN stores c
+        ON c.source_name = s.matched_censo_source
+       AND c.source_local_id = s.matched_censo_local_id
       WHERE s.geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
+        AND s.is_published
         AND s.confidence_level <> 'excluded'
         ${intentClause(sql, intent)}
         ${placeTypeClause(sql, place_type)}
@@ -286,6 +294,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         COUNT(*)::int             AS count
       FROM stores s
       WHERE s.geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
+        AND s.is_published
         AND s.confidence_level <> 'excluded'
         ${intentClause(sql, intent)}
         ${placeTypeClause(sql, place_type)}

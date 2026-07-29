@@ -169,6 +169,7 @@ async function loadQueue(
     FROM stores
     WHERE website IS NOT NULL
       AND opening_hours_osm IS NULL
+      AND is_published
       AND confidence_level <> 'excluded'
       AND (hours_web_checked_at IS NULL
            OR hours_web_checked_at < now() - make_interval(days => ${maxAgeDays}))

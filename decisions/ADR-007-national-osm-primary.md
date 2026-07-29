@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted — 2026-07-09.
+Accepted — 2026-07-09. The unmatched-censo visibility and proximity-match
+details were superseded by ADR-008 on 2026-07-29; OSM remains canonical.
 
 ## Context
 

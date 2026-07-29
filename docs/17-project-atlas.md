@@ -3,6 +3,11 @@
 Status: current-system map, audited 2026-07-26 against the working tree, the
 local PostGIS database, and the public read-only endpoints.
 
+Update 2026-07-29: the censo-only serving and proximity-match portions of this
+snapshot are superseded by
+[`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md) and
+ADR-008. The atlas remains the system orientation for unaffected areas.
+
 This document describes what cervezadonde.es **is now**. It does not turn every
 open question into a commitment. Historical intent remains in the earlier docs;
 their authority map lives in [`docs/README.md`](./README.md).
@@ -543,11 +548,12 @@ Push to `main` triggers GitHub Actions:
 2. build the web with `/api`;
 3. upload the static build;
 4. `git pull --ff-only` on the VPS;
-5. rebuild/recreate compose services;
-6. run migrations;
-7. reload Caddy.
+5. build the new API image;
+6. run migrations through a one-off container while the old API still serves;
+7. recreate compose services;
+8. reload Caddy.
 
-Migrations correctly follow code in the same workflow.
+Migrations precede the API switch, so new SQL never observes the old schema.
 
 ### Data path
 

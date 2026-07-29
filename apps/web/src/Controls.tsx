@@ -199,15 +199,12 @@ export function MoreSheet({
           <span className="legend__ring legend__ring--faded" />
           <span>Cerrado o sin datos</span>
         </div>
-        <div className="legend__row">
-          <span className="legend__dot legend__dot--hollow" />
-          <span>Sin confirmar — figura solo en un censo oficial; puede que ya no exista</span>
-        </div>
-
         <div className="sheet__title">Datos</div>
         <p className="sheet__note">
-          Locales de © OpenStreetMap (España), con censos oficiales de Madrid, Barcelona (ciudad y
-          provincia) y Andalucía. Horarios de OSM y de las webs de los locales.
+          Solo mostramos locales presentes en © OpenStreetMap. Los censos oficiales de Madrid,
+          Barcelona (ciudad y provincia) y Andalucía se usan únicamente cuando un cruce uno-a-uno
+          aporta evidencia suficiente. Ese cruce corrobora la identidad, no que el negocio siga
+          abierto hoy. Horarios de OSM y de las webs de los locales.
           {updatedOn && (
             <>
               <br />

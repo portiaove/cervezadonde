@@ -23,6 +23,8 @@
     "worker:ingest:barcelona": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:barcelona",
     "worker:ingest:diba": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:diba",
     "worker:ingest:andalucia": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:andalucia",
+    "worker:audit:censo-matches": "dotenv -e .env -- pnpm --filter @cervezadonde/worker audit:censo-matches",
+    "worker:refine:censo-matches": "dotenv -e .env -- pnpm --filter @cervezadonde/worker refine:censo-matches",
     "worker:crawl:hours": "dotenv -e .env -- pnpm --filter @cervezadonde/worker crawl:hours",
     "worker:ingest:osm:region": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:region",
     "worker:ingest:osm:pbf": "dotenv -e .env -- pnpm --filter @cervezadonde/worker ingest:osm:pbf",

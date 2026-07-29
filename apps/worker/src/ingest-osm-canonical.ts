@@ -1,8 +1,8 @@
 // OSM-canonical store ingest (ADR-007). Unlike ingest-osm.ts (which only adds
 // opening_hours onto existing Censo stores), this makes OSM the canonical
 // source: every bar/shop OSM POI in a region becomes a `stores` row under
-// source_name='osm'. A follow-up step flags OSM stores confirmed by the Madrid
-// Censo as `oficial` and drops the now-duplicated Censo rows.
+// source_name='osm'. A follow-up step runs the precision-first, one-to-one
+// censo matcher and retains every censo row as a hidden evidence layer.
 //
 // Prototype: reuses Overpass with a region bbox. Full Spain will switch to a
 // Geofabrik pbf + osmium (see ADR-007).
@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { type Sql, getSql } from '@cervezadonde/db';
+import { applyCensoRefinement } from './censo-refinement.js';
 import { getCacheDir } from './sources/madrid.js';
 import {
   OSM_SOURCE_NAME,
@@ -28,8 +29,6 @@ export const REGIONS: Record<string, [number, number, number, number]> = {
   'madrid-centro': [40.4, -3.72, 40.44, -3.68],
 };
 
-/** Match radius for confirming an OSM store against a Censo record. */
-const CONFIRM_RADIUS_M = 30;
 const CHUNK = 2000;
 
 // Safety valve for the stale-store prune: never let a single ingest hide more
@@ -53,7 +52,7 @@ export type IngestOsmCanonicalSummary = {
   upserted: number;
   byType: Record<string, number>;
   officialFlagged: number;
-  censoExcluded: number;
+  censoMatched: number;
   durationMs: number;
 };
 
@@ -162,14 +161,15 @@ async function bulkUpsertStores(
         source_local_id, source_name, name, normalized_name, address,
         geom, place_type, sells_onsite_beer, sells_takeaway_beer,
         opening_hours_osm, website, badges, confidence_score, confidence_level,
-        scoring_version, is_chain, last_import_run_id, last_seen_osm_at
+        scoring_version, is_chain, last_import_run_id, last_seen_osm_at,
+        is_published, publication_reason
       )
       SELECT
         t.slid, ${OSM_SOURCE_NAME}, t.name, t.nname, t.addr,
         ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326),
         t.ptype::place_type, (t.onsite = 1), (t.takeaway = 1),
         t.hours, t.website, ARRAY[]::text[], t.cscore, t.clevel::confidence_level,
-        'osm-v1', (t.chain = 1), ${importRunId}, now()
+        'osm-v1', (t.chain = 1), ${importRunId}, now(), TRUE, NULL
       FROM unnest(
         ${slids}::text[], ${names}::text[], ${nnames}::text[], ${addrs}::text[],
         ${lons}::float8[], ${lats}::float8[], ${ptypes}::text[],
@@ -188,9 +188,17 @@ async function bulkUpsertStores(
         website = EXCLUDED.website,
         confidence_score = EXCLUDED.confidence_score,
         confidence_level = EXCLUDED.confidence_level,
+        -- Censo matches corroborate identity but must never own canonical OSM
+        -- fields. Clear values left by the legacy proximity enrichment.
+        district = NULL,
+        neighbourhood = NULL,
+        official_status = NULL,
+        last_seen_in_official_source_at = NULL,
         is_chain = EXCLUDED.is_chain,
         last_import_run_id = EXCLUDED.last_import_run_id,
         last_seen_osm_at = now(),
+        is_published = TRUE,
+        publication_reason = NULL,
         updated_at = now()
     `;
   }
@@ -232,15 +240,19 @@ async function pruneVanishedOsmStores(
   }
   if (seen === 0 || vanished > activeTotal * MAX_PRUNE_FRACTION) {
     log(
-      `prune SKIPPED: ${vanished}/${activeTotal} active OSM stores were unseen this run ` +
-        `(>${(MAX_PRUNE_FRACTION * 100).toFixed(0)}% or nothing seen) — looks like an ` +
-        'incomplete extract, not a wave of closures. Left untouched.',
+      `prune SKIPPED: ${vanished}/${activeTotal} active OSM stores were unseen this run (>${(
+        MAX_PRUNE_FRACTION * 100
+      ).toFixed(0)}% or nothing seen) — looks like an incomplete extract, not a wave of closures. Left untouched.`,
     );
     return 0;
   }
   const [row] = await sql<{ pruned: number }[]>`
     WITH gone AS (
-      UPDATE stores SET confidence_level = 'excluded', updated_at = now()
+      UPDATE stores SET
+        confidence_level = 'excluded',
+        is_published = FALSE,
+        publication_reason = 'osm_missing_latest_extract',
+        updated_at = now()
       WHERE source_name = ${OSM_SOURCE_NAME}
         AND confidence_level <> 'excluded'
         AND last_import_run_id IS DISTINCT FROM ${importRunId}
@@ -251,71 +263,6 @@ async function pruneVanishedOsmStores(
   const pruned = row?.pruned ?? 0;
   log(`prune: hid ${pruned} OSM stores gone from the latest ingest (likely closed)`);
   return pruned;
-}
-
-/**
- * Merge official municipal censos into the OSM canonical stores (ADR-007).
- * Matches ANY source named censo_<city> (Madrid today; Barcelona/Valencia/…
- * as adapters land). For each OSM store, find its nearest active censo record
- * within CONFIRM_RADIUS_M (a GIST-indexed spatial join) and, in one statement:
- *  - copy the censo's official fields (address/district/neighbourhood/status)
- *    onto the OSM store and flag it `oficial`;
- *  - exclude the now-duplicated censo row (data preserved, just hidden).
- * Censo records with no OSM match stay active — they still add places OSM lacks.
- */
-async function enrichWithCenso(
-  sql: Sql,
-): Promise<{ officialFlagged: number; censoExcluded: number }> {
-  const [row] = await sql<{ flagged: number; excluded: number }[]>`
-    WITH matches AS (
-      SELECT
-        o.id AS osm_id, c.id AS censo_id,
-        c.address AS c_address, c.district AS c_district,
-        c.neighbourhood AS c_neighbourhood, c.official_status AS c_official
-      FROM stores o
-      CROSS JOIN LATERAL (
-        -- Nearest censo row REGARDLESS of confidence_level: matching only
-        -- active rows makes re-runs non-deterministic — a store's true dupe is
-        -- already excluded, so each run would consume the next-nearest censo
-        -- neighbour (a different business) and hide it. Matching the physical
-        -- nearest keeps the pairing stable, so re-runs re-affirm, not drift.
-        SELECT c.id, c.address, c.district, c.neighbourhood, c.official_status
-        FROM stores c
-        WHERE c.source_name LIKE 'censo_%'
-          AND ST_DWithin(c.geom::geography, o.geom::geography, ${CONFIRM_RADIUS_M})
-        -- c.id tiebreak: equidistant censo rows (same building) would otherwise
-        -- be picked arbitrarily, leaking a few new exclusions on every re-run.
-        ORDER BY c.geom::geography <-> o.geom::geography, c.id
-        LIMIT 1
-      ) c
-      -- Skip OSM stores already hidden (e.g. pruned as vanished): a ghost must
-      -- not flag itself 'oficial' or hide a censo row for a real business.
-      WHERE o.source_name = ${OSM_SOURCE_NAME} AND o.confidence_level <> 'excluded'
-    ),
-    merged AS (
-      UPDATE stores o SET
-        address = COALESCE(NULLIF(m.c_address, ''), NULLIF(o.address, '')),
-        district = COALESCE(o.district, m.c_district),
-        neighbourhood = COALESCE(o.neighbourhood, m.c_neighbourhood),
-        official_status = COALESCE(o.official_status, m.c_official),
-        badges = CASE WHEN 'oficial' = ANY(o.badges) THEN o.badges
-                      ELSE array_append(o.badges, 'oficial') END,
-        updated_at = now()
-      FROM matches m
-      WHERE o.id = m.osm_id
-      RETURNING o.id
-    ),
-    dropped AS (
-      UPDATE stores c SET confidence_level = 'excluded', updated_at = now()
-      WHERE c.id IN (SELECT censo_id FROM matches)
-        AND c.confidence_level <> 'excluded'
-      RETURNING c.id
-    )
-    SELECT
-      (SELECT count(*)::int FROM merged)  AS flagged,
-      (SELECT count(*)::int FROM dropped) AS excluded
-  `;
-  return { officialFlagged: row?.flagged ?? 0, censoExcluded: row?.excluded ?? 0 };
 }
 
 /**
@@ -339,7 +286,7 @@ export async function persistOsmCanonical(
   importRunId: number;
   byType: Record<string, number>;
   officialFlagged: number;
-  censoExcluded: number;
+  censoMatched: number;
   pruned: number;
 }> {
   const [run] = await sql<{ id: number }[]>`
@@ -355,16 +302,18 @@ export async function persistOsmCanonical(
     // Prune BEFORE enrichment so vanished ghosts can't participate in the censo
     // merge. Only when the caller vouches for full national coverage.
     const pruned = opts.pruneStale ? await pruneVanishedOsmStores(sql, importRunId, opts.log) : 0;
-    const { officialFlagged, censoExcluded } = await enrichWithCenso(sql);
+    const refinement = await applyCensoRefinement(sql);
+    const officialFlagged = refinement.acceptedMatches;
+    const censoMatched = refinement.acceptedMatches;
     opts.log(
-      `Censo enrichment: ${officialFlagged} flagged 'oficial', ${censoExcluded} Censo dupes excluded`,
+      `Censo refinement: ${officialFlagged} high-precision one-to-one matches; all censo-only rows retained but hidden`,
     );
     await sql`
       UPDATE import_runs SET status = 'succeeded', finished_at = now(),
         row_count = ${opts.rowCount}, inserted_count = ${places.length}, updated_count = ${officialFlagged}
       WHERE id = ${importRunId}
     `;
-    return { importRunId, byType, officialFlagged, censoExcluded, pruned };
+    return { importRunId, byType, officialFlagged, censoMatched, pruned };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await sql`UPDATE import_runs SET status='failed', finished_at=now(), error_message=${message} WHERE id=${importRunId}`;
@@ -399,7 +348,7 @@ export async function ingestOsmCanonical(opts: {
   const withHours = places.filter((p) => p.openingHours).length;
   log(`parsed ${places.length} places (${withHours} with hours) from ${elementsFetched} elements`);
 
-  const { importRunId, byType, officialFlagged, censoExcluded } = await persistOsmCanonical(
+  const { importRunId, byType, officialFlagged, censoMatched } = await persistOsmCanonical(
     sql,
     places,
     { sourceUrl: cfg.url, fileHash: dl.hash, rowCount: elementsFetched, log },
@@ -414,7 +363,7 @@ export async function ingestOsmCanonical(opts: {
     upserted: places.length,
     byType,
     officialFlagged,
-    censoExcluded,
+    censoMatched,
     durationMs: Date.now() - startedAt,
   };
 }

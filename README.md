@@ -9,8 +9,9 @@ and the app respects opening hours and Madrid's municipal ordinance forbidding
 takeaway alcohol between 22:00 and 09:00
 ([ADR-004](./decisions/ADR-004-madrid-alcohol-ordinance.md)).
 
-Built on OpenStreetMap (national POI base) enriched with official municipal
-censos (Madrid, Barcelona) + PostGIS + a deterministic scoring model.
+Built on OpenStreetMap (national POI base) enriched only by high-confidence,
+one-to-one matches against official censos + PostGIS + deterministic,
+versioned classification and identity policies.
 **No Google Maps/Places as a data source** (a directions link is user-facing,
 not ingested data; [ADR-003](./decisions/ADR-003-no-google-scraping.md)).
 
@@ -23,12 +24,15 @@ finished serving tables to production — see
 
 ## Status
 
-**The app is built and live end-to-end across Spain:** ~207k active stores classified
-by `place_type` + intent, the open-now evaluator honouring the 22:00 ordinance,
+**The app is built and live end-to-end across Spain.** The precision-first local
+snapshot publishes **169,701 OSM-backed stores** classified by `place_type` +
+intent, the open-now evaluator honouring the 22:00 ordinance,
 `/stores/map` + `/stores/clusters` + `/stores/nearby` with filters, the OSM +
 censo + website-hours pipeline, and the web UI (time chip, lata/barra legend,
-intent filters, nearest-open card, street search). Snapshot: 2026-07-19; 180
-Vitest cases green.
+intent filters, nearest-open card, street search). It retains censo-only rows
+for audit but does not serve them. The currently public snapshot will continue
+to report the earlier 207,304-row policy until the migration and refined local
+serving tables are published.
 
 Known truthfulness boundary: the time/ordinance engine still applies
 `Europe/Madrid` and Madrid's 22:00–09:00 takeaway rule to every Spanish
@@ -40,9 +44,10 @@ location. The current system and data-identity caveats are mapped in
 |---|---|
 | Data model, ingestion, scoring, API, web UI | done |
 | Spain-wide coverage (OSM national base + 4 official censos: Madrid, Barcelona city, Barcelona province/DIBA, Andalucía/IECA) | done |
+| Precision-first serving: censo-only/fixtures hidden; unambiguous one-to-one name+type matcher with provenance | done locally — 169,701 published, 8,568 high-confidence matches; production publish pending |
 | Deployment (VPS) + one-command weekly refresh (`refresh-all.ps1`) + CI deploy | done |
 | Existence confidence (`verification`) — trust-first "nearest open" ranking + hollow "sin confirmar" markers | done — see [`docs/16-existence-confidence.md`](./docs/16-existence-confidence.md) |
-| **Opening-hours coverage** | ⚠️ ~14% (OSM + website crawl + estimated defaults) — the biggest open problem; see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
+| **Opening-hours coverage** | ⚠️ 29,538 published rows (~17.4%; OSM + website crawl + estimated defaults) — see [`docs/12-hours-data-sources.md`](./docs/12-hours-data-sources.md) |
 | Community feedback loop ("reportar cerrado", hours; contribute back to OSM) | next |
 | More censos (Zaragoza; Valencia has no point-level open data), store detail page | later |
 
@@ -121,6 +126,8 @@ Or run the whole weekly pipeline (all of the above) with one command — see
 | `pnpm worker:ingest:barcelona [--fresh]` | Barcelona city Censo (official enrichment) |
 | `pnpm worker:ingest:diba [--fresh]` | Barcelona province Censo / GIA, 184 municipalities (official enrichment) |
 | `pnpm worker:ingest:andalucia [--fresh]` | Andalucía Censo / IECA, 8 provinces, point-level WFS (official enrichment) |
+| `pnpm worker:audit:censo-matches` | Simulate the high-precision OSM↔censo policy; no writes |
+| `pnpm worker:refine:censo-matches` | Rebuild one-to-one evidence and hide censo-only/fixture rows |
 | `pnpm worker:ingest:osm:pbf [-r region] [--fresh]` | OSM-canonical ingest from a Geofabrik pbf via osmium (national base, ADR-007) |
 | `pnpm worker:crawl:hours [-l N]` | Crawl business websites for schema.org opening hours (incremental) |
 | `pnpm worker:diagnose:madrid` | Report source-file shape, no DB writes |
@@ -160,9 +167,10 @@ Everything you run to keep it alive, in one place (detail in
 
 - `osm` — OpenStreetMap canonical stores (the national base, ADR-007).
 - `censo_madrid` / `censo_barcelona` / `censo_diba` / `censo_andalucia` — official
-  municipal/provincial/regional censos; matched OSM stores are flagged `oficial`
-  and their duplicates hidden (`excluded`). `censo_diba` is the Barcelona province
-  GIA (184 municipalities); `censo_andalucia` is the IECA directory (8 provinces).
+  municipal/provincial/regional censos retained as non-serving evidence layers.
+  Only unambiguous one-to-one name+type matches can flag an OSM row `oficial`;
+  unmatched censo rows remain hidden. `censo_diba` is the Barcelona province GIA
+  and `censo_andalucia` is the IECA directory.
 - `madrid_sample_fixture` — bundled fixture (offline dev).
 
 Each source's ingest only soft-deactivates its own rows.
@@ -171,6 +179,7 @@ Each source's ingest only soft-deactivates its own rows.
 
 - [`docs/17-project-atlas.md`](./docs/17-project-atlas.md) — **current product/system atlas (start here)**
 - [`docs/18-data-quality-atlas.md`](./docs/18-data-quality-atlas.md) — **truth model, empirical audit and false-positive paths**
+- [`docs/19-data-reliability-refinement.md`](./docs/19-data-reliability-refinement.md) — **precision-first cleanup, matcher policy and measured before/after**
 - [`docs/README.md`](./docs/README.md) — documentation authority and supersession map
 - [`docs/00-overview.md`](./docs/00-overview.md) — earlier architecture overview (partly historical)
 - [`BLUEPRINT.md`](./BLUEPRINT.md) — product blueprint
@@ -189,8 +198,8 @@ Each source's ingest only soft-deactivates its own rows.
 - [`docs/13-deploy.md`](./docs/13-deploy.md) — deploy runbook (single VPS)
 - [`docs/14-roadmap.md`](./docs/14-roadmap.md) — next steps / handoff (UX, censos, ops, hours)
 - [`docs/15-observability.md`](./docs/15-observability.md) — ops: log rotation, uptime, analytics, recovery
-- [`docs/16-existence-confidence.md`](./docs/16-existence-confidence.md) — trust tiers (verified/mapped/unverified) + "nearest open" ranking
-- [`decisions/`](./decisions/) — ADR-001…007
+- [`docs/16-existence-confidence.md`](./docs/16-existence-confidence.md) — historical censo-only fallback UX (superseded by doc 19)
+- [`decisions/`](./decisions/) — ADR-001…008
 
 ## Attribution
 

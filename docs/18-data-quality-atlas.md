@@ -4,6 +4,10 @@ Status: empirical map of how cervezadonde.es knows, guesses and can be wrong.
 Audited 2026-07-26 against the local serving database whose public `/api/meta`
 snapshot matched production.
 
+Update 2026-07-29: this document supplied the evidence for the precision-first
+cleanup. The resulting policy and measured after-state are in
+[`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md).
+
 This is not a promise to implement a particular cleanup plan. It is the shared
 language, evidence and set of diagnostic lenses needed to decide well.
 
