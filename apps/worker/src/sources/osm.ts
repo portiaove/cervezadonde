@@ -1,8 +1,9 @@
 // OpenStreetMap opening-hours enrichment source (ADR-005, doc 06 §B).
 //
 // OSM is our first-class source of `opening_hours`. We pull bars and shops
-// for the Madrid bbox via Overpass, match them to Censo `stores` by spatial
-// proximity + name similarity, and materialise the hours string onto stores.
+// for the Madrid bbox via Overpass and materialise hours onto canonical OSM
+// stores. Current censo identity matching lives in censo-match.ts and never
+// accepts spatial proximity on its own.
 //
 // Everything here is pure/config: the Overpass query, the tag filters, and
 // the name-similarity used for matching. The pipeline lives in ingest-osm.ts.

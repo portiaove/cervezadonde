@@ -9,9 +9,9 @@
 #   .\scripts\refresh-all.ps1 -NoFreshPbf  # reuse the cached Geofabrik extract (no 1.4 GB re-download)
 #
 # Pipeline order matters: the censos ingest FIRST (they re-score/reactivate
-# their rows), then the all-Spain OSM ingest runs LAST because it re-applies the
-# censo enrichment (persistOsmCanonical -> enrichWithCenso) on top of the fresh
-# censo state. See docs/14-roadmap.md and ADR-007.
+# their rows), then the all-Spain OSM ingest runs LAST because it rebuilds the
+# high-precision censo evidence relation on top of canonical OSM fields. See
+# docs/19-data-reliability-refinement.md and ADR-008.
 #
 # Prereqs for an UNATTENDED run:
 #   - Docker Desktop running   (the local PostGIS container + osmium both need the engine)
@@ -56,7 +56,7 @@ function Step($name, [scriptblock]$cmd) {
 # stdout" line when its output is captured, so pick only the numeric "n,n" line.
 function Get-Counts {
   try {
-    $q = "SELECT count(*), count(*) FILTER (WHERE opening_hours_osm IS NOT NULL OR opening_hours_web IS NOT NULL) FROM stores WHERE confidence_level <> 'excluded'"
+    $q = "SELECT count(*), count(*) FILTER (WHERE opening_hours_osm IS NOT NULL OR opening_hours_web IS NOT NULL) FROM stores WHERE is_published AND confidence_level <> 'excluded'"
     $raw  = docker exec minimarket-postgres psql -U minimarket -d minimarket -tAF',' -c $q
     $line = $raw | Where-Object { $_ -match '^\s*\d+,\d+\s*$' } | Select-Object -First 1
     if ($line) { return ($line.Trim() -split ',') }
@@ -71,9 +71,9 @@ try {
   Step "3/7 Barcelona province censo (DIBA)" { pnpm worker:ingest:diba }
   Step "4/7 Andalucía censo (IECA)"     { pnpm worker:ingest:andalucia }
   if ($NoFreshPbf) {
-    Step "5/7 OSM Spain + censo enrichment" { pnpm worker:ingest:osm:pbf -r spain }
+    Step "5/7 OSM Spain + censo evidence" { pnpm worker:ingest:osm:pbf -r spain }
   } else {
-    Step "5/7 OSM Spain + censo enrichment (fresh extract)" { pnpm worker:ingest:osm:pbf -r spain --fresh }
+    Step "5/7 OSM Spain + censo evidence (fresh extract)" { pnpm worker:ingest:osm:pbf -r spain --fresh }
   }
   if ($SkipCrawl) {
     Write-Host "`n=== 6/7 Website hours crawl SKIPPED (-SkipCrawl) ===" -ForegroundColor Yellow

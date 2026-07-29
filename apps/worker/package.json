@@ -8,6 +8,8 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "audit:censo-matches": "tsx src/cli.ts audit:censo-matches",
+    "refine:censo-matches": "tsx src/cli.ts refine:censo-matches",
     "ingest:sample": "tsx src/cli.ts ingest:sample",
     "ingest:madrid": "tsx src/cli.ts ingest:madrid",
     "ingest:barcelona": "tsx src/cli.ts ingest:barcelona",

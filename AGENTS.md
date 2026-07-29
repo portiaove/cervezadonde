@@ -39,6 +39,10 @@ Before changing anything, read:
   against a populated database as a harmless sample command.
 - Preserve source IDs, source names, import-run links, scoring versions, and
   timestamps. Prefer reversible exclusion over deletion.
+- Public serving is precision-first: `is_published` is separate from
+  classification confidence, censo-only/fixture rows stay retained but hidden,
+  and only the versioned one-to-one matcher in `censo-refinement.ts` may add
+  `oficial`. Never restore proximity-only matching.
 
 ## Repository hygiene
 

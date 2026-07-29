@@ -1,5 +1,9 @@
 # 14 — Roadmap / next steps (handoff)
 
+Historical handoff snapshot. Censo-only serving and proximity verification were
+superseded by the precision-first policy in
+[`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md).
+
 Written 2026-07-09, at the end of the session that shipped the app nationally.
 Ordered by the maintainer's chosen priority: **UX → official-censo enrichment →
 operations & observability → minor debts → opening hours (last, the big one).**
