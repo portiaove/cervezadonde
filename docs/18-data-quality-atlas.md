@@ -358,9 +358,12 @@ Other censo adapters also batch-upsert without a whole-run transaction.
 
 ### Snapshot publication
 
-Production truncates serving tables before restore, outside an explicit
-transaction. There is no pre-publish validation manifest, row-count threshold,
-checksum comparison, staging table or rollback to the previous snapshot.
+Update 2026-07-29: production now validates that the uploaded archive can be
+rendered, then truncates and restores `import_runs`, `stores` and
+`store_activities` in one transaction. A restore error or dangling
+`last_import_run_id` rolls back to the previous snapshot. There is still no
+pre-publish row-count drift threshold, checksum comparison or staging-table
+review.
 
 ### OSM prune threshold
 
