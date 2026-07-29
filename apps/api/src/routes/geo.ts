@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { type CityResponse, type Reader, open, validate } from 'maxmind';
 
@@ -24,26 +24,61 @@ export type GeoResult = {
 const NO_GEO: GeoResult = { lat: null, lng: null, city: null, source: 'none' };
 
 let reader: Reader<CityResponse> | null = null;
-let loaded = false;
+let observedDbPath: string | null = null;
+let observedMtimeMs: number | null = null;
+let loadingReader: Promise<Reader<CityResponse> | null> | null = null;
 
 async function getReader(app: FastifyInstance): Promise<Reader<CityResponse> | null> {
-  if (loaded) return reader;
-  loaded = true;
   const dbPath = process.env.GEOIP_DB;
-  if (!dbPath || !existsSync(dbPath)) {
+  if (!dbPath) {
     // Not fatal: /geo just returns null and the client keeps the default centre
     // (e.g. local dev where GEOIP_DB isn't set).
-    app.log.warn({ dbPath }, 'GEOIP_DB not set or file missing; /geo will return null');
+    if (observedDbPath !== '') {
+      observedDbPath = '';
+      app.log.warn('GEOIP_DB not set; /geo will return null');
+    }
     return null;
   }
+
+  let mtimeMs: number;
   try {
-    reader = await open<CityResponse>(dbPath);
-    app.log.info({ dbPath }, 'GeoIP database loaded');
-  } catch (err) {
-    app.log.error({ err, dbPath }, 'failed to open GeoIP database');
-    reader = null;
+    mtimeMs = statSync(dbPath).mtimeMs;
+  } catch {
+    if (observedDbPath !== dbPath || observedMtimeMs !== null) {
+      observedDbPath = dbPath;
+      observedMtimeMs = null;
+      app.log.warn(
+        { dbPath },
+        'GeoIP database missing; /geo will use the last loaded copy or null',
+      );
+    }
+    return reader;
   }
-  return reader;
+
+  if (observedDbPath === dbPath && observedMtimeMs === mtimeMs) return reader;
+  if (loadingReader) return loadingReader;
+
+  // analytics.sh replaces the monthly MMDB atomically. Detect its new mtime
+  // and hot-reload it, preserving the previous reader if the replacement is
+  // unexpectedly invalid.
+  const previousReader = reader;
+  observedDbPath = dbPath;
+  observedMtimeMs = mtimeMs;
+  loadingReader = (async () => {
+    try {
+      const nextReader = await open<CityResponse>(dbPath);
+      reader = nextReader;
+      app.log.info({ dbPath, reloaded: previousReader !== null }, 'GeoIP database loaded');
+      return nextReader;
+    } catch (err) {
+      app.log.error({ err, dbPath }, 'failed to open GeoIP database; keeping previous reader');
+      reader = previousReader;
+      return previousReader;
+    } finally {
+      loadingReader = null;
+    }
+  })();
+  return loadingReader;
 }
 
 export async function registerGeoRoutes(app: FastifyInstance): Promise<void> {

@@ -24,27 +24,10 @@ import {
   fetchMeta,
   fetchNearby,
 } from './api.js';
+import { chooseOpeningView, loadStoredMapView, saveMapView } from './initial-view.js';
 import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
 
 type InitialViewState = NonNullable<ComponentProps<typeof MapGL>['initialViewState']>;
-
-// The map opens roughly on the visitor's city (IP geolocation via /api/geo).
-// IP geo is city-level, so a slightly wider zoom shows the whole area rather
-// than an exact-but-approximate street.
-const IP_ZOOM = 12;
-
-// Fallback for visitors OUTSIDE Spain (or IPs without a city): frame the whole
-// country instead of dropping them in Manila or an arbitrary Madrid street.
-// Bounds (peninsula + Baleares) + fitBounds adapts to any viewport; Canarias is
-// left out on purpose — including it would zoom out over the Atlantic and shrink
-// the mainland to nothing (a visitor actually in Canarias gets their city by IP).
-const SPAIN_VIEW = {
-  bounds: [
-    [-9.5, 35.9],
-    [4.5, 43.9],
-  ] as [[number, number], [number, number]],
-  fitBoundsOptions: { padding: 24 },
-};
 
 // Don't let a slow/failed /geo call block first paint — fall back after this.
 const GEO_TIMEOUT_MS = 1200;
@@ -99,6 +82,7 @@ const toApiFilters = (f: UiFilters): Filters => ({
 
 export function App() {
   const mapRef = useRef<MapRef | null>(null);
+  const persistNextMoveRef = useRef(false);
   const [points, setPoints] = useState<MapStore[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selected, setSelected] = useState<MapStore | null>(null);
@@ -123,9 +107,10 @@ export function App() {
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
-  // Pick the opening view once, from /api/geo, racing a short timeout so a slow
-  // API can never hold up first paint. A Spanish city centres there; everyone
-  // else (abroad, VPN, unknown, timeout, error) gets the whole-Spain view.
+  // Prefer a recent area the user actually chose. On a first visit, combine
+  // local IP geolocation with the browser timezone: it cannot identify a city,
+  // but it can reject an impossible Canarias/peninsula result without asking
+  // for location permission.
   useEffect(() => {
     let settled = false;
     const settle = (view: InitialViewState) => {
@@ -133,16 +118,25 @@ export function App() {
       settled = true;
       setInitialView(view);
     };
-    const timer = setTimeout(() => settle(SPAIN_VIEW), GEO_TIMEOUT_MS);
+
+    const savedView = loadStoredMapView(window.localStorage);
+    if (savedView) {
+      settle(savedView);
+      return;
+    }
+
+    let timeZone: string | null = null;
+    try {
+      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+    } catch {
+      // Old/locked-down browsers simply continue with IP-only inference.
+    }
+
+    const fallback = chooseOpeningView(null, timeZone, null);
+    const timer = setTimeout(() => settle(fallback), GEO_TIMEOUT_MS);
     fetchGeo()
-      .then((g) => {
-        if (g.source === 'ip' && g.lat != null && g.lng != null) {
-          settle({ longitude: g.lng, latitude: g.lat, zoom: IP_ZOOM });
-        } else {
-          settle(SPAIN_VIEW);
-        }
-      })
-      .catch(() => settle(SPAIN_VIEW))
+      .then((geo) => settle(chooseOpeningView(geo, timeZone, null)))
+      .catch(() => settle(fallback))
       .finally(() => clearTimeout(timer));
     return () => clearTimeout(timer);
   }, []);
@@ -227,8 +221,20 @@ export function App() {
     void refreshFromMap();
   }, [refreshFromMap]);
 
+  const onMoveStart = useCallback((e: ViewStateChangeEvent) => {
+    if (e.originalEvent) persistNextMoveRef.current = true;
+  }, []);
+
   const onMoveEnd = useCallback(
-    (_e: ViewStateChangeEvent) => {
+    (e: ViewStateChangeEvent) => {
+      if (persistNextMoveRef.current) {
+        saveMapView(window.localStorage, {
+          longitude: e.viewState.longitude,
+          latitude: e.viewState.latitude,
+          zoom: e.viewState.zoom,
+        });
+        persistNextMoveRef.current = false;
+      }
       void refreshFromMap();
     },
     [refreshFromMap],
@@ -240,6 +246,7 @@ export function App() {
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLoc(loc);
+        persistNextMoveRef.current = true;
         mapRef.current?.flyTo({ center: [loc.lng, loc.lat], zoom: 15 });
         void refreshNearest(loc);
       },
@@ -250,6 +257,7 @@ export function App() {
 
   const selectNearby = useCallback((s: NearbyStore) => {
     setSelected(s as unknown as MapStore);
+    persistNextMoveRef.current = true;
     mapRef.current?.flyTo({ center: [s.lng, s.lat], zoom: 16 });
   }, []);
 
@@ -261,6 +269,7 @@ export function App() {
   const goToSearchPick = useCallback((pick: SearchPick) => {
     const map = mapRef.current;
     if (!map) return;
+    persistNextMoveRef.current = true;
     if (pick.bbox) {
       map.fitBounds(
         [
@@ -310,6 +319,7 @@ export function App() {
   const zoomIntoCluster = useCallback((c: Cluster) => {
     const map = mapRef.current;
     if (!map) return;
+    persistNextMoveRef.current = true;
     map.easeTo({ center: [c.lng, c.lat], zoom: Math.min(map.getZoom() + 3, 15), duration: 500 });
   }, []);
 
@@ -332,6 +342,7 @@ export function App() {
         mapStyle={MAP_STYLE}
         attributionControl={false}
         onLoad={onLoad}
+        onMoveStart={onMoveStart}
         onMoveEnd={onMoveEnd}
         interactiveLayerIds={['unclustered-point']}
         onClick={onMapClick}

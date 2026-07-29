@@ -14,6 +14,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="$ROOT/deploy/logs/caddy/access.log"
 GEO="$ROOT/deploy/geoip/dbip-city-lite.mmdb"
+GEO_MONTH_FILE="$GEO.month"
 OUT_DIR="$ROOT/deploy/web-analytics"
 OUT="$OUT_DIR/report.html"
 
@@ -28,14 +29,53 @@ if [ ! -s "$LOG" ]; then
   exit 1
 fi
 
-# GeoIP DB (free DB-IP Lite, monthly). Fetched once; delete the file to refresh.
-if [ ! -s "$GEO" ]; then
-  MONTH="$(date +%Y-%m)"
+is_valid_mmdb() {
+  python3 - "$1" <<'PY'
+import os
+import sys
+
+path = sys.argv[1]
+marker = b"\xab\xcd\xefMaxMind.com"
+size = os.path.getsize(path)
+if size <= 1_000_000:
+    raise SystemExit(1)
+with open(path, "rb") as handle:
+    handle.seek(max(0, size - 131_072))
+    if marker not in handle.read():
+        raise SystemExit(1)
+PY
+}
+
+# GeoIP DB (free DB-IP Lite, monthly). Download into the mounted directory,
+# validate the gzip + MMDB metadata marker, then replace it atomically.
+# A failed download always leaves the previous working database in place.
+MONTH="$(date +%Y-%m)"
+INSTALLED_MONTH=""
+if [ -s "$GEO_MONTH_FILE" ]; then
+  IFS= read -r INSTALLED_MONTH < "$GEO_MONTH_FILE"
+elif [ -s "$GEO" ]; then
+  # Adopt an existing pre-stamp database without downloading it again when its
+  # file date already belongs to this month.
+  INSTALLED_MONTH="$(date -r "$GEO" +%Y-%m 2>/dev/null || true)"
+fi
+
+if [ "$INSTALLED_MONTH" != "$MONTH" ]; then
+  GEO_DIR="$(dirname "$GEO")"
+  TMP_GZ="$(mktemp "$GEO_DIR/.dbip-city-lite-$MONTH.XXXXXX.mmdb.gz")"
+  TMP_MMDB="${TMP_GZ%.gz}"
   echo "Fetching GeoIP DB (dbip-city-lite-$MONTH)…"
-  if ! curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$MONTH.mmdb.gz" | gunzip > "$GEO" 2>/dev/null; then
-    echo "  (GeoIP fetch failed — geo panel will be empty; continuing)"
-    rm -f "$GEO"
+  if curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$MONTH.mmdb.gz" -o "$TMP_GZ" &&
+     gzip -t "$TMP_GZ" &&
+     gzip -dc "$TMP_GZ" > "$TMP_MMDB" &&
+     is_valid_mmdb "$TMP_MMDB"; then
+    mv -f "$TMP_MMDB" "$GEO"
+    printf '%s\n' "$MONTH" > "$GEO_MONTH_FILE.tmp"
+    mv -f "$GEO_MONTH_FILE.tmp" "$GEO_MONTH_FILE"
+    echo "  GeoIP DB updated atomically; the API will hot-reload it."
+  else
+    echo "  (GeoIP fetch/validation failed — keeping the previous database)"
   fi
+  rm -f "$TMP_GZ" "$TMP_MMDB"
 fi
 
 geo_arg=()

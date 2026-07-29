@@ -90,11 +90,18 @@ apt-get install -y goaccess          # once
 bash scripts/analytics.sh            # anytime, on the VPS
 ```
 
-`analytics.sh` consolidates everything: it (1) fetches the free GeoIP DB if
-missing, (2) regenerates the GoAccess HTML report — **crawlers ignored** so it
-reflects humans, not the scanner noise, and IPs anonymised — and (3) prints the
-**top searched areas** table (the censo signal) right in the terminal. One run =
-the product signal immediately + a refreshed full report.
+`analytics.sh` consolidates everything: it (1) keeps the free GeoIP DB on the
+current monthly DB-IP edition, (2) regenerates the GoAccess HTML report —
+**crawlers ignored** so it reflects humans, not the scanner noise, and IPs
+anonymised — and (3) prints the **top searched areas** table (the censo signal)
+right in the terminal. One run = the product signal immediately + a refreshed
+full report.
+
+The MMDB update is failure-safe: it downloads and validates a temporary file,
+then replaces the live file atomically. A network or validation failure keeps
+the preceding working edition. The API notices the replacement and hot-reloads
+it without a container restart. The daily cron below therefore also handles
+the monthly DB-IP refresh automatically.
 
 Keep it fresh automatically with a daily cron (`crontab -e`):
 

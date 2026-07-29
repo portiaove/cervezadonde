@@ -159,14 +159,23 @@ permit Node 20.10+.
 
 ### Initial load
 
-1. The web calls `GET /api/geo`.
-2. The API performs a local DB-IP lookup and accepts only a broad Spain
-   bounding box.
-3. A result mounts the map at zoom 12 around the inferred city.
-4. A failure or 1.2 s timeout fits the peninsula + Balearic Islands.
-   Canarias is excluded from this fallback framing to avoid zooming over the
-   Atlantic; a Canary visitor relies on IP geolocation or search/GPS.
-5. CARTO raster tiles render a muted basemap.
+1. A valid user-selected viewport saved in `localStorage` during the preceding
+   90 days wins; it stays in the browser and avoids repeating a weak IP guess.
+2. Otherwise the web calls `GET /api/geo`. The API performs a local DB-IP
+   lookup and accepts only a broad Spain bounding box.
+3. The browser timezone acts only as a regional consistency check:
+   `Europe/Madrid` rejects a Canary IP point and `Atlantic/Canary` rejects a
+   mainland point.
+4. A consistent DB-IP city mounts at conservative zoom 10 (zoom 8 without a
+   city). DB-IP Lite has no accuracy radius, so it is never treated as
+   street-level evidence.
+5. A contradiction, failure or 1.2 s timeout fits the timezone-appropriate
+   regional bounds: peninsula + Baleares, or Canarias.
+6. CARTO raster tiles render a muted basemap.
+
+The viewport is persisted only after a real interaction or an explicit
+search/GPS/cluster movement; the inferred opening view is not written back as
+if the user had confirmed it.
 
 At zoom `<= 11`, the web asks for server-side grid clusters. At zoom `> 11`, it
 asks for up to 2,000 individual stores in the viewport.
@@ -580,7 +589,8 @@ patterns and raw pipeline artifacts stay local. The restore rejects dangling
 
 - Caddy: TLS, compression, static SPA fallback, no-store API, immutable hashed
   assets, revalidated index;
-- API: Node 22 under `tsx`, `TZ=Europe/Madrid`;
+- API: Node 22 under `tsx`, `TZ=Europe/Madrid`; the local DB-IP reader
+  hot-reloads an atomically replaced MMDB;
 - PostGIS: port 5432 bound to VPS localhost only;
 - container JSON logs capped at roughly 30 MB/service;
 - Caddy access logs roll for roughly 60 days.
