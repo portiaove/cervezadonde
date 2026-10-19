@@ -18,14 +18,12 @@ describe('hours-source policy', () => {
   });
 
   it('does not follow an otherwise valid business URL into a Google Maps redirect', async () => {
-    const request = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(null, {
-          status: 302,
-          headers: { location: 'https://www.google.es/maps/place/test' },
-        }),
-      );
+    const request = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://www.google.es/maps/place/test' },
+      }),
+    );
     vi.stubGlobal('fetch', request);
     expect(await fetchHoursSource('https://example.com/business', 5000)).toBeNull();
     expect(request).toHaveBeenCalledTimes(1);
