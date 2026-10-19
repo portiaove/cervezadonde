@@ -35,6 +35,15 @@ export async function registerReportRoutes(app: FastifyInstance) {
       WHERE id=${req.params.id} AND source_name='osm' LIMIT 1
     `;
     if (!place) return reply.code(404).send({ error: 'place_not_found' });
+    if (parsed.data.kind === 'closed_now') {
+      // An old temporary observation must not monopolise the pending unique
+      // key forever. Expiry changes no public place or accepted correction.
+      await sql`UPDATE place_reports SET status='rejected',reviewed_at=now(),
+        reviewer='system:expiry',review_note='Temporary observation expired without review'
+        WHERE source_name=${place.source_name} AND source_local_id=${place.source_local_id}
+          AND normalized_name=${place.normalized_name} AND kind='closed_now' AND status='pending'
+          AND created_at<=now()-interval '4 hours'`;
+    }
     await sql`
       INSERT INTO place_reports (source_name,source_local_id,normalized_name,place_name,kind)
       VALUES (${place.source_name},${place.source_local_id},${place.normalized_name},${place.name},${parsed.data.kind})

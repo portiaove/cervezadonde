@@ -28,7 +28,8 @@ export async function revokePlaceCorrection(id: string, reviewer: string, note: 
 
 export async function listPlaceReports() {
   return getSql()`SELECT id,place_name,source_name,source_local_id,normalized_name,kind,created_at
-    FROM place_reports WHERE status='pending' ORDER BY created_at LIMIT 100`;
+    FROM place_reports WHERE status='pending'
+      AND (kind<>'closed_now' OR created_at>now()-interval '4 hours') ORDER BY created_at LIMIT 100`;
 }
 
 /** SSH/CLI only: no public moderation endpoint or embedded browser secret. */

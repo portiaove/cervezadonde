@@ -11,6 +11,7 @@ Before changing anything, read:
 2. `docs/18-data-quality-atlas.md` — the truth model and known false-positive
    paths.
 3. `docs/README.md` — documentation authority and supersession map.
+4. `docs/21-place-evidence-and-feedback.md` — current recommendation and durable-feedback policy.
 
 ## Product invariants
 
@@ -39,6 +40,11 @@ Before changing anything, read:
 - Opening-hours evaluation uses place-local wall-clock dates; keep the API
   process in UTC. Madrid's general sale window is scoped to its IGN municipal
   polygon. Unknown local policy is not evidence of permission or prohibition.
+- Never invent category-wide schedules. Unknown/disputed hours cannot enter
+  open-now; fuel-pump hours are not shop hours or evidence of beer retail.
+- `serving_stores` is the common public boundary. Production-owned reports and
+  corrections must survive ingest and snapshot replacement. Never attach them
+  by foreign key to the replaceable store PK or cascade-truncate them.
 - Preserve source IDs, source names, import-run links, scoring versions, and
   timestamps. Prefer reversible exclusion over deletion.
 - Public serving is precision-first: `is_published` is separate from
@@ -53,6 +59,8 @@ Before changing anything, read:
 - Raw files under `data/raw` and database files are runtime artifacts, not
   source.
 - Run `pnpm test`, `pnpm typecheck` and `pnpm lint` for behavioral changes.
+- Run `pnpm test:quality-db` against local PostGIS for serving/moderation/restore
+  changes. It uses and removes a generated isolated schema, never public data.
   The historical lint baseline was resolved during the October 2026 audit;
   runtime data and logs must remain outside source linting and Docker images.
 - Treat items in the atlas decision queue as questions, not an approved

@@ -187,6 +187,13 @@ try {
     (await sql`SELECT status FROM place_reports WHERE id=${pending.id}`)[0]?.status,
     'rejected',
   );
+  await sql`INSERT INTO place_reports(source_name,source_local_id,normalized_name,place_name,kind,created_at)
+    VALUES ('osm','n9450850755','TOWER PARADISE','Tower Paradise','closed_now',now()-interval '5 hours')`;
+  assert.equal((await app.inject({ ...post, payload: { kind: 'closed_now' } })).statusCode, 202);
+  const [temporary] = await sql`SELECT count(*) FILTER(WHERE status='pending')::int AS fresh,
+    count(*) FILTER(WHERE reviewer='system:expiry')::int AS expired FROM place_reports WHERE kind='closed_now'`;
+  assert.equal(temporary.fresh, 1);
+  assert.equal(temporary.expired, 1);
   console.log(
     JSON.stringify(
       {
