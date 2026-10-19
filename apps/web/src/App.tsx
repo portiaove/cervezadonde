@@ -42,37 +42,31 @@ const GEO_TIMEOUT_MS = 1200;
 // it, individual coloured markers (the product's core view).
 const CLUSTER_MAX_ZOOM = 11;
 
-// Muted basemap (Carto Positron raster, free with attribution): no built-in
-// POI icons, so our coloured markers are the only "content" on the map —
-// the standard OSM style's shop symbols competed with them. @2x tiles at
-// tileSize 256 render crisp on retina screens.
+// CARTO now returns an HTTP-200 PNG saying "API key required" without a key.
+// That is not a network error, so onError cannot trigger a fallback. Use the
+// key-free OSM standard service directly; keep normal browser caching/referrer
+// behaviour and request only the visible viewport (no offline/prefetch jobs).
 const MAP_STYLE: StyleSpecification = {
   version: 8,
-  sources: {
-    basemap: {
-      type: 'raster',
-      tiles: ['a', 'b', 'c', 'd'].map(
-        (s) => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`,
-      ),
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap contributors © CARTO',
-    },
-  },
-  layers: [{ id: 'basemap-tiles', type: 'raster', source: 'basemap' }],
-};
-
-const FALLBACK_MAP_STYLE: StyleSpecification = {
-  ...MAP_STYLE,
   sources: {
     basemap: {
       type: 'raster',
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
       maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
     },
   },
+  layers: [
+    {
+      id: 'basemap-tiles',
+      type: 'raster',
+      source: 'basemap',
+      // Mute the standard cartography so our coloured place markers stand out.
+      paint: { 'raster-saturation': -0.75, 'raster-contrast': -0.1 },
+    },
+  ],
 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -104,7 +98,6 @@ export function App() {
   const mapReadyRef = useRef(false);
   const mapRequestRef = useRef<AbortController | null>(null);
   const nearestRequestRef = useRef<AbortController | null>(null);
-  const fallbackRef = useRef(false);
   const persistNextMoveRef = useRef(false);
   const [points, setPoints] = useState<MapStore[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -123,7 +116,6 @@ export function App() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [nearestError, setNearestError] = useState<string | null>(null);
-  const [fallbackMap, setFallbackMap] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   // Initial map view, resolved from IP geolocation before the map mounts so
@@ -307,12 +299,6 @@ export function App() {
       // Dev-only handle for browser automation; stripped from prod builds.
       (window as unknown as { __MAP__?: unknown }).__MAP__ = mapRef.current?.getMap();
     }
-    // MapLibre mounts the compact attribution expanded (<details open>), which
-    // covers the time chip; collapse it — it stays reachable behind the ⓘ.
-    mapRef.current
-      ?.getContainer()
-      .querySelector('details.maplibregl-ctrl-attrib')
-      ?.removeAttribute('open');
     void refreshFromMap();
   }, [refreshFromMap]);
 
@@ -443,34 +429,24 @@ export function App() {
           mapRef.current = r;
         }}
         initialViewState={initialView}
-        mapStyle={fallbackMap ? FALLBACK_MAP_STYLE : MAP_STYLE}
+        mapStyle={MAP_STYLE}
         attributionControl={false}
         onLoad={onLoad}
         onError={(event) => {
           console.error('map render failed:', event.error);
-          if ('sourceId' in event && event.sourceId === 'basemap' && !fallbackRef.current) {
-            fallbackRef.current = true;
-            setFallbackMap(true);
-          } else {
-            setMapError(
-              mapReadyRef.current
-                ? 'No se ha podido cargar el fondo del mapa.'
-                : 'No se ha podido iniciar el mapa. Recarga la página o prueba otro navegador con WebGL.',
-            );
-          }
+          setMapError(
+            mapReadyRef.current || ('sourceId' in event && event.sourceId === 'basemap')
+              ? 'No se ha podido cargar el fondo del mapa.'
+              : 'No se ha podido iniciar el mapa. Recarga la página o prueba otro navegador con WebGL.',
+          );
         }}
         onMoveStart={onMoveStart}
         onMoveEnd={onMoveEnd}
         interactiveLayerIds={['unclustered-point']}
         onClick={onMapClick}
       >
-        {/* One compact attribution (top-right, out of everything's way) holds
-            both the tile credit and our data-source note. */}
-        <AttributionControl
-          position="top-right"
-          compact
-          customAttribution="Locales: © OSM + censos oficiales (Madrid, BCN, DIBA, Andalucía)"
-        />
+        {/* OSM's tile policy requires visible attribution, not a closed ⓘ. */}
+        <AttributionControl position="top-right" compact={false} />
         {/* Individual coloured markers (zoomed in) — the product's core view. */}
         <Source id="points" type="geojson" data={pointsData}>
           <Layer

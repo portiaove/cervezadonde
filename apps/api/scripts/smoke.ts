@@ -79,9 +79,12 @@ if (webBase) {
   const html = await home.text();
   const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^" ]+)"/g)].map((match) => match[1]);
   assert.ok(assets.length >= 2, 'missing JS/CSS references');
+  const tileTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  let publishedBasemapFound = false;
   for (const asset of assets) {
+    const isScript = asset.endsWith('.js');
     const response = await fetch(new URL(asset, webBase), {
-      method: 'HEAD',
+      method: isScript ? 'GET' : 'HEAD',
       signal: AbortSignal.timeout(20_000),
     });
     assert.equal(response.status, 200, `missing asset ${asset}`);
@@ -90,18 +93,37 @@ if (webBase) {
       !response.headers.get('content-type')?.includes('text/html'),
       `HTML served for ${asset}`,
     );
+    if (isScript) {
+      const script = await response.text();
+      assert.ok(
+        !script.includes('basemaps.cartocdn.com'),
+        'published web still requests keyless CARTO',
+      );
+      publishedBasemapFound ||= script.includes(tileTemplate);
+    }
   }
+  assert.ok(publishedBasemapFound, 'published web is missing the key-free basemap configuration');
   const missing = await fetch(new URL('/assets/nonexistent-smoke-probe.js', webBase), {
     method: 'HEAD',
   });
   assert.equal(missing.status, 404, 'missing script incorrectly used SPA fallback');
-  const tile = await fetch('https://a.basemaps.cartocdn.com/light_all/10/501/385@2x.png', {
-    signal: AbortSignal.timeout(20_000),
-  });
+  // One representative tile only, not an automated pan/zoom or bulk download.
+  // PNG/HTTP checks establish transport, not visual map content: CARTO's
+  // former authentication watermark also passed those checks.
+  const tile = await fetch(
+    tileTemplate.replace('{z}', '10').replace('{x}', '501').replace('{y}', '385'),
+    {
+      headers: {
+        'User-Agent': 'cervezadonde.es smoke-check (+https://cervezadonde.es)',
+        Referer: new URL(webBase).origin,
+      },
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
   assert.equal(tile.status, 200);
   assert.equal(tile.headers.get('access-control-allow-origin'), '*');
   const signature = new Uint8Array(await tile.arrayBuffer()).slice(0, 8);
-  assert.deepEqual([...signature], [137, 80, 78, 71, 13, 10, 26, 10], 'invalid map tile');
+  assert.deepEqual([...signature], [137, 80, 78, 71, 13, 10, 26, 10], 'invalid map tile transport');
   const search = await fetch('https://photon.komoot.io/api?q=Madrid&limit=1', {
     signal: AbortSignal.timeout(20_000),
   });

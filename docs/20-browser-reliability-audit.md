@@ -4,6 +4,12 @@ This update supersedes the affected behaviour described in atlas sections
 9–12 and ADR-004. It does not change precision-first publication or censo
 matching policy.
 
+Follow-up: the first deployment did **not** resolve the reported basemap
+failure. The user's subsequent `API key required` report identified CARTO's
+HTTP-200 authentication images; see the incident section at the end. The
+OpenStreetMap-only correction there supersedes the CARTO/fallback configuration
+and its earlier transport-only validation below.
+
 ## Initial production evidence (before corrections)
 
 - Home, current JS/CSS, lazy MapLibre chunk, CARTO tile and map/cluster API
@@ -198,3 +204,40 @@ The final data push completed successfully in a validated transaction before
 the final public checks. Recovery copies were retained. Temporary local API
 and static audit services are stopped after validation; the user's Docker
 engine and database are left running.
+
+## Follow-up: CARTO authentication images (2026-10-19)
+
+The user still saw a blank map labelled `API key required` after the first
+deployment. A direct download of the actual configured CARTO tile returned
+HTTP 200, PNG bytes and valid CORS headers, but visual inspection showed only
+the authentication watermark, not cartography. CARTO's own
+[basemap documentation](https://github.com/CartoDB/basemap-styles#1-web-raster-basemaps)
+now explicitly requires a key and documents this exact response. The existing
+network-error fallback could never catch a successfully decoded error image.
+The previous smoke test was therefore insufficient, not evidence that the
+user's map was working.
+
+The correction removes CARTO requests and starts directly with standard OSM
+raster tiles. Raster saturation/contrast keep our coloured place markers
+prominent. There is no key signup, paid plan or new secret. Attribution is
+linked and expanded rather than hidden behind a toggle, below the top UI.
+Tile failure still displays the retryable map error. Normal browser caching
+and referrers are preserved; no bulk/prefetch/offline feature is added. The
+[OSMF tile policy](https://operations.osmfoundation.org/policies/tiles/)
+applies: this community service is best-effort, not a guaranteed SLA, and a
+dedicated provider or self-hosting would be needed for heavy traffic.
+
+The component regression now verifies the **initial** map source and visible
+attribution, not merely the error fallback. The HTTP smoke test reads the
+actual published JS, rejects CARTO URLs and requires the key-free OSM source
+before checking one representative tile's transport. It correctly failed
+against the previous public build with `published web still requests keyless
+CARTO`. A downloaded OSM tile was visually inspected and showed real roads
+and place labels without a key watermark. These images and headers are kept
+locally in `logs/map-diagnosis-20261019/`.
+
+All 234 automated tests (API 61, web 25, worker 148), full typechecking, lint
+and the production workspace build pass after this correction. The corrected
+local static build also passes the new smoke suite against the production API.
+Deployment and public smoke results are recorded when completed. No browser is connected to the automation runtime;
+individual tile inspection is not a full browser/WebGL rendering test.

@@ -34,10 +34,14 @@ body,
   overflow: hidden;
 }
 
-/* Brief splash while the opening map centre is resolved (IP geolocation).
-   Light grey matches the Positron basemap so mounting the map is seamless. */
+/* Brief splash while the opening map centre is resolved (IP geolocation). */
 .app--booting {
   background: #eaeef2;
+}
+
+/* Keep the required, expanded OSM credit below the time/search controls. */
+.maplibregl-ctrl-top-right {
+  top: calc(48px + var(--safe-top));
 }
 
 button,
@@ -213,7 +217,7 @@ a {
 .map-status {
   position: absolute;
   z-index: 5;
-  top: calc(58px + var(--safe-top));
+  top: calc(88px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;

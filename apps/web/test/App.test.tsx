@@ -43,7 +43,8 @@ vi.mock('react-map-gl/maplibre', async () => {
     Layer: () => null,
     Marker: (props: { children?: ReactNode }) =>
       React.createElement('map-marker', null, props.children),
-    AttributionControl: () => null,
+    AttributionControl: (props: Record<string, unknown>) =>
+      React.createElement('map-attribution', props),
   };
 });
 
@@ -210,12 +211,23 @@ describe('map lifecycle regressions', () => {
     expect(signal?.aborted).toBe(true);
   });
 
-  it('switches to the alternate basemap when CARTO tiles fail', async () => {
+  it('starts directly with the key-free basemap, not CARTO HTTP-200 error tiles', async () => {
+    await mount();
+    expect(harness.props.mapStyle.sources.basemap.tiles).toEqual([
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    ]);
+    expect(JSON.stringify(harness.props.mapStyle)).not.toContain('cartocdn');
+    expect(tree.root.findByType('map-attribution').props.compact).toBe(false);
+    expect(JSON.stringify(harness.props.mapStyle)).toContain(
+      'https://www.openstreetmap.org/copyright',
+    );
+  });
+
+  it('reports an unavailable basemap instead of silently leaving a blank background', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await mount();
     act(() => harness.props.onError({ error: new Error('tile unavailable'), sourceId: 'basemap' }));
-    expect(harness.props.mapStyle.sources.basemap.tiles[0]).toContain('tile.openstreetmap.org');
-    expect(tree.root.findByType(MapStatus).props.error).toBeNull();
+    expect(tree.root.findByType(MapStatus).props.error).toContain('fondo del mapa');
   });
 
   it('reports a map that never finishes starting instead of spinning forever', async () => {
