@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { closeSql, getSql } from '@cervezadonde/db';
 import Fastify from 'fastify';
 import { persistOsmCanonical } from '../../worker/src/ingest-osm-canonical.js';
@@ -147,9 +148,25 @@ try {
   await hidden(); // Real canonical ingest cannot overwrite moderated evidence.
   await sql`UPDATE stores SET is_published=true,publication_reason=NULL WHERE id=70654`;
   await hidden(); // Re-ingest cannot resurrect an accepted negative observation.
+  const restoreScript = readFileSync(
+    new URL('../../../deploy/restore-data.sh', import.meta.url),
+    'utf8',
+  );
+  const actualGuard = restoreScript.match(
+    /IF EXISTS \(SELECT 1 FROM quality_before_restore[\s\S]*?END IF;/,
+  )?.[0];
+  assert.ok(actualGuard, 'Restore evidence guard is missing');
   await sql.begin(async (tx) => {
+    await tx`CREATE TEMP TABLE quality_before_restore AS SELECT
+      (SELECT count(*) FROM place_reports) AS reports,(SELECT count(*) FROM place_corrections) AS corrections`;
     await tx`TRUNCATE store_activities,stores,import_runs RESTART IDENTITY RESTRICT`;
     await tx.unsafe(fixtures);
+    // pg_dump deliberately clears search_path; exercise the actual production
+    // guard in that context, not just an approximate snapshot simulation.
+    await tx`SELECT pg_catalog.set_config('search_path','',true)`;
+    await tx.unsafe(
+      `DO $validation$ BEGIN ${actualGuard.replaceAll('public.', `${schema}.`)} END $validation$;`,
+    );
   });
   assert.equal((await sql`SELECT count(*)::int AS n FROM place_reports`)[0]?.n, 1);
   assert.equal((await sql`SELECT count(*)::int AS n FROM place_corrections`)[0]?.n, 1);

@@ -22,8 +22,8 @@ bash deploy/backup-quality.sh
 \set ON_ERROR_STOP on
 BEGIN;
 CREATE TEMP TABLE quality_before_restore AS
-SELECT (SELECT count(*) FROM place_reports) AS reports,
-       (SELECT count(*) FROM place_corrections) AS corrections;
+SELECT (SELECT count(*) FROM public.place_reports) AS reports,
+       (SELECT count(*) FROM public.place_corrections) AS corrections;
 TRUNCATE public.store_activities, public.stores, public.import_runs
   RESTART IDENTITY RESTRICT;
 SQL
@@ -33,8 +33,8 @@ DO $validation$
 BEGIN
   IF EXISTS (SELECT 1 FROM quality_before_restore
     -- Concurrent new reports are legitimate; only loss is a restore failure.
-    WHERE reports > (SELECT count(*) FROM place_reports)
-       OR corrections > (SELECT count(*) FROM place_corrections)) THEN
+    WHERE reports > (SELECT count(*) FROM public.place_reports)
+       OR corrections > (SELECT count(*) FROM public.place_corrections)) THEN
     RAISE EXCEPTION 'snapshot restore changed production-owned evidence';
   END IF;
   IF EXISTS (
