@@ -70,11 +70,50 @@ const clusters = ClusterResponse.parse(
 assert.ok(clusters.clusters.reduce((sum, cluster) => sum + cluster.count, 0) > 100_000);
 const invalid = await fetch(`${base}/stores/map?north=40&south=39&east=-3&west=-4&open_now=no`);
 assert.equal(invalid.status, 400);
+
+const webBase = process.argv[3];
+if (webBase) {
+  const home = await fetch(webBase, { signal: AbortSignal.timeout(20_000) });
+  assert.equal(home.status, 200);
+  assert.ok(home.headers.get('cache-control')?.includes('no-cache'));
+  const html = await home.text();
+  const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^" ]+)"/g)].map((match) => match[1]);
+  assert.ok(assets.length >= 2, 'missing JS/CSS references');
+  for (const asset of assets) {
+    const response = await fetch(new URL(asset, webBase), {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(20_000),
+    });
+    assert.equal(response.status, 200, `missing asset ${asset}`);
+    assert.ok(response.headers.get('cache-control')?.includes('immutable'));
+    assert.ok(
+      !response.headers.get('content-type')?.includes('text/html'),
+      `HTML served for ${asset}`,
+    );
+  }
+  const missing = await fetch(new URL('/assets/nonexistent-smoke-probe.js', webBase), {
+    method: 'HEAD',
+  });
+  assert.equal(missing.status, 404, 'missing script incorrectly used SPA fallback');
+  const tile = await fetch('https://a.basemaps.cartocdn.com/light_all/10/501/385@2x.png', {
+    signal: AbortSignal.timeout(20_000),
+  });
+  assert.equal(tile.status, 200);
+  assert.equal(tile.headers.get('access-control-allow-origin'), '*');
+  const signature = new Uint8Array(await tile.arrayBuffer()).slice(0, 8);
+  assert.deepEqual([...signature], [137, 80, 78, 71, 13, 10, 26, 10], 'invalid map tile');
+  const search = await fetch('https://photon.komoot.io/api?q=Madrid&limit=1', {
+    signal: AbortSignal.timeout(20_000),
+  });
+  assert.equal(search.status, 200);
+  assert.ok((await search.json()).features.length > 0, 'geocoder returned no results');
+}
 console.log(
   JSON.stringify(
     {
       ok: true,
       base,
+      web: webBase ?? null,
       meta,
       nearby: summary,
       map: map.results.length,

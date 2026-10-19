@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
@@ -26,26 +26,12 @@ const fileExists = async (p: string): Promise<boolean> => {
 };
 
 const hashFile = async (path: string): Promise<{ hash: string; size: number }> => {
-  const { createReadStream } = await import('node:fs');
   const hash = createHash('sha256');
   let size = 0;
-  await pipeline(
-    createReadStream(path),
-    async function* (source) {
-      for await (const chunk of source) {
-        hash.update(chunk);
-        size += chunk.length;
-        yield chunk;
-      }
-    },
-    async function* (source) {
-      // drain
-      // biome-ignore lint/correctness/noUnusedVariables: drain only
-      for await (const _ of source) {
-        // no-op
-      }
-    },
-  );
+  for await (const chunk of createReadStream(path)) {
+    hash.update(chunk);
+    size += chunk.length;
+  }
   return { hash: hash.digest('hex'), size };
 };
 

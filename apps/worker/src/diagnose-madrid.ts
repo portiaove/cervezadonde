@@ -193,8 +193,7 @@ export function summarizeDiagnose(d: DiagnoseResult): string {
   lines.push(`total rows:          ${d.totalRows.toLocaleString('es-ES')}`);
   lines.push(`rows w/ coords:      ${d.rowsWithCoords.toLocaleString('es-ES')}`);
   lines.push(
-    `rows w/ valid coords ${d.rowsWithValidCoords.toLocaleString('es-ES')}` +
-      ' (numeric, inside Madrid UTM bbox)',
+    `rows w/ valid coords ${d.rowsWithValidCoords.toLocaleString('es-ES')} (numeric, inside Madrid UTM bbox)`,
   );
 
   if (d.missingColumns.length > 0) {

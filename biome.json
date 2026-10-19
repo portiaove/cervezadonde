@@ -3,7 +3,16 @@
   "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": true,
-    "ignore": ["**/dist/**", "**/build/**", "**/node_modules/**", "**/.next/**", "**/coverage/**"]
+    "ignore": [
+      "**/dist/**",
+      "**/build/**",
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/coverage/**",
+      "**/data/raw/**",
+      "**/data/postgres/**",
+      "**/logs/**"
+    ]
   },
   "formatter": {
     "enabled": true,

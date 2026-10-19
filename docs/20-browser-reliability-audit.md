@@ -107,11 +107,13 @@ matching policy.
 
 ## Validation
 
-Final local checks: **229 tests passing** (API 61, web 24, worker 144), full
-workspace typecheck passing, and production web build passing. Modified source
-files pass Biome. Full-repository lint retains existing errors and
-one warning in untouched files. The refresh PowerShell script parses without
-errors and `git diff --check` passes.
+The first local validation passed 229 tests (API 61, web 24, worker 144), full
+workspace typechecking and the production build. The former lint baseline was
+then resolved: source formatting, a cache-file hashing stream expressed without
+an empty generator, and a diagnostic template literal. Cache hashing has its
+own integrity regression test. Full-repository `pnpm lint` now passes and is
+required before deployment. Runtime caches/logs are excluded explicitly. The
+refresh PowerShell script parses without errors and `git diff --check` passes.
 
 The static map-engine import produces one ~995 kB JS file (~280 kB gzip), which
 triggers Vite's chunk-size warning. This accepts a small initial bundle cost to
@@ -124,7 +126,7 @@ out-of-order requests, failed API retry, alternate tiles, wide-zoom open-now,
 idle-tab refresh, search cancellation, request timeout, honest labels, HTTP
 booleans, invalid/unknown schedules, Canary time/date, DST repeated hours and
 Madrid polygon membership. The full lint baseline has unrelated existing
-failures documented in the atlas.
+history documented in the atlas.
 
 Further operational validation is recorded below after deployment and refresh.
 The reusable `apps/api/scripts/smoke.ts` checks HTTP contracts, publication,

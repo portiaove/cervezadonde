@@ -242,7 +242,9 @@ async function pruneVanishedOsmStores(
     log(
       `prune SKIPPED: ${vanished}/${activeTotal} active OSM stores were unseen this run (>${(
         MAX_PRUNE_FRACTION * 100
-      ).toFixed(0)}% or nothing seen) — looks like an incomplete extract, not a wave of closures. Left untouched.`,
+      ).toFixed(
+        0,
+      )}% or nothing seen) — looks like an incomplete extract, not a wave of closures. Left untouched.`,
     );
     return 0;
   }

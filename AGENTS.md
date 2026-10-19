@@ -52,8 +52,8 @@ Before changing anything, read:
 - Do not read or print `.env`; use `.env.example` for configuration shape.
 - Raw files under `data/raw` and database files are runtime artifacts, not
   source.
-- Run `pnpm test` and `pnpm typecheck` for behavioral changes. `pnpm lint`
-  currently has known baseline failures documented in the atlas; do not claim a
-  clean lint run unless those are actually resolved.
+- Run `pnpm test`, `pnpm typecheck` and `pnpm lint` for behavioral changes.
+  The historical lint baseline was resolved during the October 2026 audit;
+  runtime data and logs must remain outside source linting and Docker images.
 - Treat items in the atlas decision queue as questions, not an approved
   roadmap. Prefer evidence from production behavior and data audits.
