@@ -2,6 +2,7 @@
 // osmium (run in Docker). This is the national-scale path (ADR-007): one
 // uniform dataset per region/country, no dependence on Overpass.
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -25,7 +26,19 @@ export const REGION_PBF: Record<string, string> = {
   'comunidad-madrid': 'https://download.geofabrik.de/europe/spain/madrid-latest.osm.pbf',
   cataluna: 'https://download.geofabrik.de/europe/spain/cataluna-latest.osm.pbf',
   spain: 'https://download.geofabrik.de/europe/spain-latest.osm.pbf',
+  'canary-islands': 'https://download.geofabrik.de/africa/canary-islands-latest.osm.pbf',
 };
+
+/** Geofabrik's Spain file excludes Canarias. Both parts must succeed before national pruning. */
+export function extractParts(region: string): Array<{ region: string; url: string }> {
+  const parts = region === 'spain' ? ['spain', 'canary-islands'] : [region];
+  return parts.map((part) => {
+    const url = REGION_PBF[part];
+    if (!url)
+      throw new Error(`unknown region '${part}'. Known: ${Object.keys(REGION_PBF).join(', ')}`);
+    return { region: part, url };
+  });
+}
 
 export type IngestOsmPbfSummary = {
   importRunId: number;
@@ -158,7 +171,7 @@ async function parseGeojsonl(path: string): Promise<OsmPlace[]> {
     crlfDelay: Number.POSITIVE_INFINITY,
   });
   for await (const raw of rl) {
-    const line = raw.replace(/^\x1e/, '').trim(); // strip RFC 8142 record separator
+    const line = (raw.charCodeAt(0) === 0x1e ? raw.slice(1) : raw).trim(); // RFC 8142 separator
     if (!line) continue;
     try {
       const place = featureToPlace(JSON.parse(line));
@@ -177,46 +190,59 @@ export async function ingestOsmPbf(opts: {
 }): Promise<IngestOsmPbfSummary> {
   const log = opts.log ?? ((m: string) => console.error(m));
   const region = opts.region ?? 'comunidad-madrid';
-  const url = REGION_PBF[region];
-  if (!url)
-    throw new Error(`unknown region '${region}'. Known: ${Object.keys(REGION_PBF).join(', ')}`);
+  const parts = extractParts(region);
 
   const sql = getSql();
   const startedAt = Date.now();
   const cacheDir = getCacheDir();
   const hostDataDir = resolve(process.cwd(), cacheDir);
 
-  if (opts.fresh) {
-    const { unlink } = await import('node:fs/promises');
-    await unlink(resolve(hostDataDir, `${region}.osm.pbf`)).catch(() => undefined);
-  }
-  const dl = await downloadIfNeeded({ url, destDir: cacheDir, fileName: `${region}.osm.pbf`, log });
-
   await ensureOsmiumImage(log);
-  log('osmium: filtering bars + shops...');
-  await runOsmium(hostDataDir, [
-    'tags-filter',
-    '--overwrite',
-    '-o',
-    `/data/${region}-filtered.osm.pbf`,
-    `/data/${region}.osm.pbf`,
-    `nwr/amenity=${[...OSM_AMENITY_VALUES, 'fuel'].join(',')}`,
-    `nwr/shop=${OSM_SHOP_VALUES.join(',')}`,
-  ]);
-  log('osmium: exporting GeoJSON...');
-  await runOsmium(hostDataDir, [
-    'export',
-    '--overwrite',
-    '-o',
-    `/data/${region}.geojsonl`,
-    '-f',
-    'geojsonseq',
-    '--add-unique-id=type_id',
-    '--geometry-types=point,polygon',
-    `/data/${region}-filtered.osm.pbf`,
-  ]);
-
-  const places = await parseGeojsonl(resolve(hostDataDir, `${region}.geojsonl`));
+  const combined = new Map<string, OsmPlace>();
+  const hashes: string[] = [];
+  for (const part of parts) {
+    if (opts.fresh) {
+      const { unlink } = await import('node:fs/promises');
+      await unlink(resolve(hostDataDir, `${part.region}.osm.pbf`)).catch(() => undefined);
+    }
+    const dl = await downloadIfNeeded({
+      url: part.url,
+      destDir: cacheDir,
+      fileName: `${part.region}.osm.pbf`,
+      log,
+    });
+    hashes.push(dl.hash);
+    log(`extract ${part.region}: sha256=${dl.hash}`);
+    log(`osmium: filtering bars + shops (${part.region})...`);
+    await runOsmium(hostDataDir, [
+      'tags-filter',
+      '--overwrite',
+      '-o',
+      `/data/${part.region}-filtered.osm.pbf`,
+      `/data/${part.region}.osm.pbf`,
+      `nwr/amenity=${[...OSM_AMENITY_VALUES, 'fuel'].join(',')}`,
+      `nwr/shop=${OSM_SHOP_VALUES.join(',')}`,
+    ]);
+    log(`osmium: exporting GeoJSON (${part.region})...`);
+    await runOsmium(hostDataDir, [
+      'export',
+      '--overwrite',
+      '-o',
+      `/data/${part.region}.geojsonl`,
+      '-f',
+      'geojsonseq',
+      '--add-unique-id=type_id',
+      '--geometry-types=point,polygon',
+      `/data/${part.region}-filtered.osm.pbf`,
+    ]);
+    const parsed = await parseGeojsonl(resolve(hostDataDir, `${part.region}.geojsonl`));
+    if (parsed.length === 0)
+      throw new Error(`empty extract ${part.region}; refusing national persistence/pruning`);
+    log(`parsed ${parsed.length} places from ${part.region}`);
+    for (const place of parsed)
+      combined.set(place.sourceLocalId ?? `${place.osmType}/${place.osmId}`, place);
+  }
+  const places = [...combined.values()];
   const withHours = places.filter((p) => p.openingHours).length;
   log(`parsed ${places.length} places (${withHours} with hours)`);
 
@@ -224,8 +250,11 @@ export async function ingestOsmPbf(opts: {
     sql,
     places,
     {
-      sourceUrl: url,
-      fileHash: dl.hash,
+      sourceUrl: parts.map((part) => part.url).join('\n'),
+      fileHash:
+        hashes.length === 1
+          ? (hashes[0] ?? '')
+          : createHash('sha256').update(hashes.join('\n')).digest('hex'),
       rowCount: places.length,
       log,
       // Only a whole-Spain extract sees every store, so only it can tell a

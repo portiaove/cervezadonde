@@ -74,6 +74,7 @@ export const OpenNowBlock = z.object({
   sells_beer_now: z.boolean(),
   reason: z.string(),
   hours_source: HoursSource,
+  sale_policy: z.enum(['madrid_general', 'not_applicable', 'unknown']).optional(),
 });
 export type OpenNowBlock = z.infer<typeof OpenNowBlock>;
 

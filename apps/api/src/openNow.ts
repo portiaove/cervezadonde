@@ -1,26 +1,26 @@
 // Open-now evaluator and Madrid alcohol-sale ordinance check.
 // See docs/04-domain-model.md (canSellBeerNow) and decisions/ADR-004.
 //
-// Pure functions. Europe/Madrid timezone. No DB access.
-// The ordinance window (22:00 → 09:00) and the local time arithmetic are
+// Pure functions. Place-local time. No DB access.
+// The Madrid general night window (22:00 → 08:00) and local time arithmetic are
 // the *only* place these rules live in the codebase.
 //
-// ⚠ TZ requirement: the opening_hours library evaluates rule times against
-// the PROCESS's wall clock. The API must run with TZ=Europe/Madrid (set in
-// deploy/docker-compose.prod.yml) or every verdict shifts by 1–2 hours.
+// opening_hours reads process-local Date fields. The API process runs in UTC;
+// we supply a wall-clock date in the place's zone, including Canarias.
 
 import OpeningHours from 'opening_hours';
+import { type Coordinates, isMadridMunicipality, timeZoneForPlace } from './geography.js';
 
 export const MADRID_TZ = 'Europe/Madrid';
 
-/** Window during which takeaway alcohol sales are prohibited (Madrid ordinance). */
+/** Madrid general night window, subject to licence exceptions (Ley 5/2002 art. 30.4). */
 export const ORDINANCE = {
   startHour: 22,
-  endHour: 9,
-  label: '22:00–09:00',
+  endHour: 8,
+  label: '22:00–08:00',
 } as const;
 
-export type PlaceForOpenNow = {
+export type PlaceForOpenNow = Coordinates & {
   place_type:
     | 'bar'
     | 'supermercado'
@@ -30,6 +30,7 @@ export type PlaceForOpenNow = {
     | 'gasolinera'
     | 'otro';
   sells_takeaway_beer: boolean;
+  sells_onsite_beer?: boolean;
   opening_hours_osm: string | null;
   /** Hours crawled from the business website (crawl:hours). Optional for callers without it. */
   opening_hours_web?: string | null;
@@ -48,6 +49,7 @@ export type CanSellBeerResult = {
   sells_beer_now: boolean;
   reason: string;
   hours_source: HoursSource;
+  sale_policy: 'madrid_general' | 'not_applicable' | 'unknown';
 };
 
 /**
@@ -93,8 +95,8 @@ export function formatMadridHHMM(d: Date): string {
 // --- ordinance -------------------------------------------------------------
 
 /**
- * Madrid municipal ordinance: takeaway alcohol sales are prohibited from
- * 22:00 to 09:00 local time. Window crosses midnight.
+ * General Madrid restriction: 22:00 to 08:00 local time, subject to licence
+ * exceptions. Geographic dispatch is separate. Window crosses midnight.
  */
 export function isAlcoholTakeawayProhibited(now: Date): boolean {
   const minutes = madridMinuteOfDay(now);
@@ -105,7 +107,7 @@ export function isAlcoholTakeawayProhibited(now: Date): boolean {
 
 /**
  * Evaluate whether the place is open at `now`, given an OSM `opening_hours`
- * string. Returns `closes_at` as a Europe/Madrid HH:MM when the next change
+ * string. Returns `closes_at` as a place-local HH:MM when the next change
  * is a close, otherwise null (e.g. 24/7 places).
  *
  * Defensive: invalid strings or null hours → `{ open: false, closes_at: null }`.
@@ -117,25 +119,86 @@ export function isAlcoholTakeawayProhibited(now: Date): boolean {
 // rare sunrise/sunset-based rules; PH resolves from the country code).
 const ES_NOMINATIM = { address: { country_code: 'es' }, lat: 40.4168, lon: -3.7038 };
 
-export function isOpenNow(openingHoursOsm: string | null, now: Date): IsOpenResult {
+const WALL_CLOCK_FORMATTERS = new Map(
+  ['Europe/Madrid', 'Atlantic/Canary'].map((timeZone) => [
+    timeZone,
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }),
+  ]),
+);
+
+function wallClockDate(now: Date, timeZone: string): Date {
+  const parts = WALL_CLOCK_FORMATTERS.get(timeZone)?.formatToParts(now) ?? [];
+  const part = (name: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === name)?.value);
+  return new Date(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+}
+
+export function isOpenNow(
+  openingHoursOsm: string | null,
+  now: Date,
+  place: Coordinates = {},
+): IsOpenResult {
+  return evaluateHours(openingHoursOsm, now, place) ?? { open: false, closes_at: null };
+}
+
+// null means unreadable/unknown, not a confirmed closed schedule.
+function evaluateHours(
+  openingHoursOsm: string | null,
+  now: Date,
+  place: Coordinates,
+): IsOpenResult | null {
   if (!openingHoursOsm || openingHoursOsm.trim() === '') {
-    return { open: false, closes_at: null };
+    return null;
   }
   const conf = { tag_key: 'opening_hours', locale: 'es' } as never;
   try {
+    // Solar rules need a timezone-aware astronomical evaluator. Until then,
+    // report unknown rather than silently using a Madrid sunrise nationwide.
+    if (/\b(sunrise|sunset|dawn|dusk)\b/.test(openingHoursOsm)) return null;
+    const localNow = wallClockDate(now, timeZoneForPlace(place));
     let oh: OpeningHours;
     try {
       oh = new OpeningHours(openingHoursOsm, undefined, conf);
     } catch {
-      oh = new OpeningHours(openingHoursOsm, ES_NOMINATIM as never, conf);
+      oh = new OpeningHours(
+        openingHoursOsm,
+        {
+          ...ES_NOMINATIM,
+          lat: place.lat ?? ES_NOMINATIM.lat,
+          lon: place.lng ?? ES_NOMINATIM.lon,
+        } as never,
+        conf,
+      );
     }
-    const open = oh.getState(now);
+    if (oh.getUnknown(localNow)) return null;
+    const open = oh.getState(localNow);
     if (!open) return { open: false, closes_at: null };
-    const nextChange = oh.getNextChange(now) as Date | undefined;
-    const closes_at = nextChange ? formatMadridHHMM(nextChange) : null;
+    const nextChange = oh.getNextChange(localNow) as Date | undefined;
+    // A comment or an unknown interval can be the next change. Do not call
+    // that a closing time unless it actually changes from open to closed.
+    const closes_at =
+      nextChange && !oh.getState(nextChange) && !oh.getUnknown(nextChange)
+        ? `${String(nextChange.getHours()).padStart(2, '0')}:${String(nextChange.getMinutes()).padStart(2, '0')}`
+        : null;
     return { open: true, closes_at };
   } catch {
-    return { open: false, closes_at: null };
+    return null;
   }
 }
 
@@ -151,33 +214,48 @@ export function isOpenNow(openingHoursOsm: string | null, now: Date): IsOpenResu
  * - Shop without takeaway-beer flag → never sells beer.
  */
 export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerResult {
+  const onsite = place.sells_onsite_beer ?? place.place_type === 'bar';
+  const sale_policy = onsite
+    ? 'not_applicable'
+    : isMadridMunicipality(place)
+      ? 'madrid_general'
+      : 'unknown';
   // Confirmed hours: OSM first (community-curated), then the business's own
   // website (crawl:hours); only without both does the estimate kick in.
   const osmHours = place.opening_hours_osm?.trim() || null;
   const webHours = place.opening_hours_web?.trim() || null;
-  const realHours = osmHours ?? webHours;
-  const hours = realHours ?? DEFAULT_HOURS_BY_TYPE[place.place_type];
-  const hours_source: HoursSource = osmHours
-    ? 'osm'
-    : webHours
-      ? 'website'
-      : hours
-        ? 'estimated'
-        : 'none';
+  const candidates: Array<[HoursSource, string | null]> =
+    osmHours || webHours
+      ? [
+          ['osm', osmHours],
+          ['website', webHours],
+        ]
+      : [['estimated', DEFAULT_HOURS_BY_TYPE[place.place_type]]];
+  let verdict: IsOpenResult | null = null;
+  let hours_source: HoursSource = 'none';
+  for (const [source, hours] of candidates) {
+    if (!hours) continue;
+    verdict = evaluateHours(hours, now, place);
+    if (verdict) {
+      hours_source = source;
+      break;
+    }
+  }
   const estimated = hours_source === 'estimated';
 
   // No hours and no sensible default — be conservative, don't claim anything.
-  if (!hours) {
+  if (!verdict) {
     return {
       open: false,
       closes_at: null,
       sells_beer_now: false,
       reason: 'Horario no confirmado.',
       hours_source,
+      sale_policy,
     };
   }
 
-  const { open, closes_at } = isOpenNow(hours, now);
+  const { open, closes_at } = verdict;
   if (!open) {
     return {
       open: false,
@@ -185,11 +263,12 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
       sells_beer_now: false,
       reason: estimated ? 'Suele estar cerrado a esta hora (horario no confirmado).' : 'Cerrado.',
       hours_source,
+      sale_policy,
     };
   }
 
   // Bars consume on-site — ordinance doesn't apply.
-  if (place.place_type === 'bar') {
+  if (onsite) {
     return {
       open: true,
       closes_at,
@@ -200,6 +279,7 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
           ? 'Bar abierto (horario de su web).'
           : 'Bar abierto en horario habitual.',
       hours_source,
+      sale_policy,
     };
   }
 
@@ -211,17 +291,19 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
       sells_beer_now: false,
       reason: 'No vende alcohol para llevar.',
       hours_source,
+      sale_policy,
     };
   }
 
   // Madrid ordinance applies to non-bars.
-  if (isAlcoholTakeawayProhibited(now)) {
+  if (sale_policy === 'madrid_general' && isAlcoholTakeawayProhibited(now)) {
     return {
       open: true,
       closes_at,
       sells_beer_now: false,
-      reason: `Ordenanza municipal: no puede vender alcohol para llevar de ${ORDINANCE.label}.`,
+      reason: `Ordenanza municipal: restricción general en Madrid de ${ORDINANCE.label}; puede haber excepciones por licencia.`,
       hours_source,
+      sale_policy,
     };
   }
 
@@ -229,11 +311,15 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
     open: true,
     closes_at,
     sells_beer_now: true,
-    reason: estimated
-      ? 'Suele estar abierto (horario no confirmado). Puede venderte cerveza para llevar.'
-      : hours_source === 'website'
-        ? 'Abierto (horario de su web). Puede venderte cerveza para llevar.'
-        : 'Abierto. Puede venderte cerveza para llevar.',
+    reason:
+      sale_policy === 'unknown'
+        ? `${estimated ? 'Suele estar abierto (horario no confirmado).' : 'Abierto según su horario.'} Venta para llevar sujeta a normativa local no evaluada.`
+        : estimated
+          ? 'Suele estar abierto (horario no confirmado). Puede venderte cerveza para llevar.'
+          : hours_source === 'website'
+            ? 'Abierto (horario de su web). Puede venderte cerveza para llevar.'
+            : 'Abierto. Puede venderte cerveza para llevar.',
     hours_source,
+    sale_policy,
   };
 }

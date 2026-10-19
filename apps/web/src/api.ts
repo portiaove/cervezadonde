@@ -6,7 +6,23 @@ import type {
   PlaceType,
 } from '@cervezadonde/shared';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
+
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, 15_000);
+  try {
+    const res = await fetch(`${API_URL}${path}`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`${path.split('?')[0]} failed: ${res.status}`);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+  }
+}
 
 /** Filters shared by the map and nearby endpoints. */
 export type Filters = {
@@ -41,6 +57,7 @@ export async function fetchMap(
   bounds: Bounds,
   filters: Filters = {},
   limit = 2000,
+  signal?: AbortSignal,
 ): Promise<MapResponse> {
   // At wide zoom MapLibre's bounds overflow ±90/±180; clamp so the API (which
   // validates the range) doesn't 400 and leave the map empty.
@@ -52,15 +69,14 @@ export async function fetchMap(
     limit: limit.toString(),
   });
   applyFilters(qs, filters);
-  const res = await fetch(`${API_URL}/stores/map?${qs.toString()}`);
-  if (!res.ok) throw new Error(`map failed: ${res.status}`);
-  return (await res.json()) as MapResponse;
+  return getJson(`/stores/map?${qs.toString()}`, signal);
 }
 
 export async function fetchClusters(
   bounds: Bounds,
   cell: number,
   filters: Filters = {},
+  signal?: AbortSignal,
 ): Promise<ClusterResponse> {
   const qs = new URLSearchParams({
     north: clampLat(bounds.north).toString(),
@@ -71,9 +87,7 @@ export async function fetchClusters(
   });
   // open_now can't be aggregated server-side; the rest of the filters apply.
   applyFilters(qs, { ...filters, open_now: false });
-  const res = await fetch(`${API_URL}/stores/clusters?${qs.toString()}`);
-  if (!res.ok) throw new Error(`clusters failed: ${res.status}`);
-  return (await res.json()) as ClusterResponse;
+  return getJson(`/stores/clusters?${qs.toString()}`, signal);
 }
 
 /** Dataset freshness + size, from the API's /meta endpoint. */
@@ -84,9 +98,7 @@ export type MetaResponse = {
 };
 
 export async function fetchMeta(): Promise<MetaResponse> {
-  const res = await fetch(`${API_URL}/meta`);
-  if (!res.ok) throw new Error(`meta failed: ${res.status}`);
-  return (await res.json()) as MetaResponse;
+  return getJson('/meta');
 }
 
 /** Approximate, IP-based location for the initial map centre (city-level). */
@@ -98,14 +110,13 @@ export type GeoResponse = {
 };
 
 export async function fetchGeo(): Promise<GeoResponse> {
-  const res = await fetch(`${API_URL}/geo`);
-  if (!res.ok) throw new Error(`geo failed: ${res.status}`);
-  return (await res.json()) as GeoResponse;
+  return getJson('/geo');
 }
 
 export async function fetchNearby(
   center: { lat: number; lng: number; radius_m?: number; limit?: number },
   filters: Filters = {},
+  signal?: AbortSignal,
 ): Promise<NearbyResponse> {
   const qs = new URLSearchParams({
     lat: center.lat.toString(),
@@ -114,7 +125,5 @@ export async function fetchNearby(
     limit: (center.limit ?? 50).toString(),
   });
   applyFilters(qs, filters);
-  const res = await fetch(`${API_URL}/stores/nearby?${qs.toString()}`);
-  if (!res.ok) throw new Error(`nearby failed: ${res.status}`);
-  return (await res.json()) as NearbyResponse;
+  return getJson(`/stores/nearby?${qs.toString()}`, signal);
 }

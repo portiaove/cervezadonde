@@ -7,3 +7,9 @@ data/
 apps/web/dist
 # 131 MB GeoIP DB — mounted into the api container as a volume, not baked in.
 deploy/geoip
+# Runtime secrets and local pipeline artifacts must never enter API images.
+**/.env*
+**/data/raw
+**/data/postgres
+**/logs
+**/*.dump

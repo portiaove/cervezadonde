@@ -32,12 +32,16 @@ const baseBar: PlaceForOpenNow = {
 };
 
 const baseShop: PlaceForOpenNow = {
+  lat: 40.4168,
+  lng: -3.7038,
   place_type: 'alimentacion',
   sells_takeaway_beer: true,
   opening_hours_osm: 'Mo-Sa 09:00-22:00',
 };
 
 const baseShop24h: PlaceForOpenNow = {
+  lat: 40.4168,
+  lng: -3.7038,
   place_type: 'tienda_24h',
   sells_takeaway_beer: true,
   opening_hours_osm: '24/7',
@@ -73,14 +77,14 @@ describe('isAlcoholTakeawayProhibited — Madrid ordinance window', () => {
   it('02:00 (after midnight) → prohibited', () => {
     expect(isAlcoholTakeawayProhibited(madridAt(2, 0))).toBe(true);
   });
-  it('08:59 → prohibited (last minute of window)', () => {
-    expect(isAlcoholTakeawayProhibited(madridAt(8, 59))).toBe(true);
+  it('07:59 → prohibited (last minute of window)', () => {
+    expect(isAlcoholTakeawayProhibited(madridAt(7, 59))).toBe(true);
   });
-  it('09:00 → allowed (boundary)', () => {
-    expect(isAlcoholTakeawayProhibited(madridAt(9, 0))).toBe(false);
+  it('08:00 → allowed (boundary)', () => {
+    expect(isAlcoholTakeawayProhibited(madridAt(8, 0))).toBe(false);
   });
   it('window label matches constant', () => {
-    expect(ORDINANCE.label).toBe('22:00–09:00');
+    expect(ORDINANCE.label).toBe('22:00–08:00');
   });
 });
 
@@ -123,6 +127,25 @@ describe('isOpenNow', () => {
 });
 
 describe('canSellBeerNow — null hours fall back to the default schedule', () => {
+  it('invalid published hours mean unknown, not confirmed closed', () => {
+    const r = canSellBeerNow({ ...baseBar, opening_hours_osm: 'garbage' }, madridAt(13, 0));
+    expect(r.hours_source).toBe('none');
+    expect(r.reason).toBe('Horario no confirmado.');
+  });
+
+  it('uses website hours if OSM hours cannot be evaluated', () => {
+    const r = canSellBeerNow(
+      { ...baseBar, opening_hours_osm: 'garbage', opening_hours_web: '24/7' },
+      madridAt(13, 0),
+    );
+    expect(r.hours_source).toBe('website');
+    expect(r.sells_beer_now).toBe(true);
+  });
+
+  it('an explicit unknown state is not a closed place', () => {
+    const r = canSellBeerNow({ ...baseBar, opening_hours_osm: 'Mo-Su unknown' }, madridAt(13, 0));
+    expect(r.hours_source).toBe('none');
+  });
   it('bar without hours at 13:00 → estimated open ("suele estar abierto")', () => {
     const r = canSellBeerNow({ ...baseBar, opening_hours_osm: null }, madridAt(13, 0));
     expect(r.open).toBe(true);
@@ -190,10 +213,7 @@ describe('canSellBeerNow — default schedules (estimated)', () => {
   });
 
   it('tienda 24h, 04:00 → estimated open but ordinance blocks the sale', () => {
-    const r = canSellBeerNow(
-      { place_type: 'tienda_24h', sells_takeaway_beer: true, opening_hours_osm: null },
-      madridAt(4, 0),
-    );
+    const r = canSellBeerNow({ ...baseShop24h, opening_hours_osm: null }, madridAt(4, 0));
     expect(r.open).toBe(true);
     expect(r.sells_beer_now).toBe(false);
     expect(r.reason).toContain('Ordenanza');
@@ -274,9 +294,54 @@ describe('canSellBeerNow — 24h shops and the ordinance', () => {
     expect(r.open).toBe(true);
     expect(r.sells_beer_now).toBe(false);
   });
-  it('24/7 shop at 09:00 sharp → ordinance lifts', () => {
-    const r = canSellBeerNow(baseShop24h, madridAt(9, 0));
+  it('24/7 shop at 08:00 sharp → general restriction lifts', () => {
+    const r = canSellBeerNow(baseShop24h, madridAt(8, 0));
     expect(r.sells_beer_now).toBe(true);
+  });
+});
+
+describe('national time and policy regressions', () => {
+  const canary = { lat: 28.467, lng: -16.25 };
+
+  it('does not apply Madrid sale restrictions to Barcelona or Canarias', () => {
+    for (const coordinates of [canary, { lat: 41.387, lng: 2.17 }]) {
+      const result = canSellBeerNow({ ...baseShop24h, ...coordinates }, madridAt(23, 0));
+      expect(result.open).toBe(true);
+      expect(result.sells_beer_now).toBe(true);
+      expect(result.sale_policy).toBe('unknown');
+      expect(result.reason).toContain('normativa local no evaluada');
+    }
+  });
+
+  it('evaluates the same instant in each place timezone, not the server timezone', () => {
+    const now = new Date('2026-06-03T20:30:00Z'); // Madrid 22:30, Canarias 21:30
+    const hours = 'Mo-Su 09:00-22:00';
+    expect(isOpenNow(hours, now, baseShop).open).toBe(false);
+    expect(isOpenNow(hours, now, canary)).toEqual({ open: true, closes_at: '22:00' });
+  });
+
+  it('uses the Canary calendar date around midnight and during winter', () => {
+    expect(isOpenNow('Mo 20:00-24:00', new Date('2026-10-19T22:30:00Z'), canary).open).toBe(true);
+    expect(isOpenNow('Mo 20:00-24:00', new Date('2026-10-19T22:30:00Z'), baseShop).open).toBe(
+      false,
+    );
+    expect(isOpenNow('Mo-Su 09:00-22:00', new Date('2026-01-15T21:30:00Z'), canary).open).toBe(
+      true,
+    );
+  });
+
+  it('handles both occurrences of a repeated local hour when daylight saving ends', () => {
+    for (const instant of ['2026-10-25T00:30:00Z', '2026-10-25T01:30:00Z']) {
+      expect(isOpenNow('Su 02:00-03:00', new Date(instant), baseShop).open).toBe(true);
+    }
+  });
+
+  it('does not infer a Madrid policy when the place coordinates are missing', () => {
+    const result = canSellBeerNow(
+      { ...baseShop24h, lat: undefined, lng: undefined },
+      madridAt(23, 0),
+    );
+    expect(result.sale_policy).toBe('unknown');
   });
 });
 

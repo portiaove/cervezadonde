@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { featureToPlace } from '../src/ingest-osm-pbf.js';
+import { extractParts, featureToPlace } from '../src/ingest-osm-pbf.js';
+
+describe('national extract coverage', () => {
+  it('requires both mainland/Balearic Spain and Canarias before national persistence', () => {
+    expect(extractParts('spain').map((part) => part.region)).toEqual(['spain', 'canary-islands']);
+    expect(extractParts('spain')[1]?.url).toBe(
+      'https://download.geofabrik.de/africa/canary-islands-latest.osm.pbf',
+    );
+  });
+  it('keeps regional imports regional and rejects unknown extracts', () => {
+    expect(extractParts('cataluna')).toHaveLength(1);
+    expect(() => extractParts('unknown')).toThrow('unknown region');
+  });
+});
 
 const feat = (properties: Record<string, string>) => ({
   id: 'w1',

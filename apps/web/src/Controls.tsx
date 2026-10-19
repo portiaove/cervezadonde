@@ -2,9 +2,9 @@ import type { Intent } from '@cervezadonde/shared';
 import type { MetaResponse } from './api.js';
 import { INTENT_COLOR } from './store-view.js';
 
-const madridTime = (iso: string): string =>
+const localTime = (iso: string, timeZone: string): string =>
   new Intl.DateTimeFormat('es-ES', {
-    timeZone: 'Europe/Madrid',
+    timeZone,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -12,19 +12,16 @@ const madridTime = (iso: string): string =>
 
 export function TimeChip({
   now,
-  takeawayAllowed,
+  timeZone,
 }: {
   now: string | null;
-  takeawayAllowed: boolean | null;
+  timeZone: string;
 }) {
   if (!now) return null;
-  const allowed = takeawayAllowed ?? true;
   return (
     <div className="time-chip">
-      <span className="time-chip__clock">{madridTime(now)}</span>
-      <span className={`time-chip__state ${allowed ? 'ok' : 'closed'}`}>
-        {allowed ? 'venta para llevar abierta' : 'venta para llevar cerrada'}
-      </span>
+      <span className="time-chip__clock">{localTime(now, timeZone)}</span>
+      <span>{timeZone === 'Atlantic/Canary' ? 'hora canaria' : 'hora peninsular'}</span>
     </div>
   );
 }
@@ -166,7 +163,7 @@ export function MoreSheet({
         >
           <span className="switch-row__text">
             Ocultar cadenas
-            <small>Fuera supermercados y franquicias</small>
+            <small>Oculta los locales identificados como cadenas</small>
           </span>
           <span className={`switch ${filters.hideChains ? 'switch--on' : ''}`} aria-hidden>
             <span className="switch__knob" />
@@ -189,7 +186,7 @@ export function MoreSheet({
         <div className="legend__sep" />
         <div className="legend__row">
           <span className="legend__ring legend__ring--open" />
-          <span>Puede venderte ahora (horario confirmado)</span>
+          <span>Abierto según el horario publicado</span>
         </div>
         <div className="legend__row">
           <span className="legend__ring legend__ring--estimated" />
@@ -208,7 +205,8 @@ export function MoreSheet({
           {updatedOn && (
             <>
               <br />
-              Datos actualizados el {updatedOn}.
+              Última importación de OpenStreetMap: {updatedOn}. No implica una comprobación
+              presencial.
             </>
           )}
         </p>
@@ -225,7 +223,27 @@ export function MoreSheet({
  * Small top-center status pill: a spinner while the viewport loads, or an
  * empty-result hint (e.g. a filter cleared the map). Only one shows at a time.
  */
-export function MapStatus({ loading, empty }: { loading: boolean; empty: boolean }) {
+export function MapStatus({
+  loading,
+  empty,
+  error,
+  onRetry,
+}: {
+  loading: boolean;
+  empty: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+}) {
+  if (error) {
+    return (
+      <div className="map-status map-status--error" role="alert">
+        {error}{' '}
+        <button type="button" onClick={onRetry}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div className="map-status">

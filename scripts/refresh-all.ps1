@@ -65,11 +65,12 @@ function Get-Counts {
 }
 
 try {
-  Step "0/7 Ensure local PostGIS is up" { pnpm db:up }
-  Step "1/7 Madrid censo"               { pnpm worker:ingest:madrid }
-  Step "2/7 Barcelona city censo"       { pnpm worker:ingest:barcelona }
-  Step "3/7 Barcelona province censo (DIBA)" { pnpm worker:ingest:diba }
-  Step "4/7 Andalucía censo (IECA)"     { pnpm worker:ingest:andalucia }
+  Step "0/7 Ensure local PostGIS is healthy" { pnpm db:up --wait }
+  Step "Migrate local schema"          { pnpm db:migrate }
+  Step "1/7 Madrid censo (fresh)"       { pnpm worker:ingest:madrid --fresh }
+  Step "2/7 Barcelona city censo (fresh)" { pnpm worker:ingest:barcelona --fresh }
+  Step "3/7 Barcelona province censo (DIBA, fresh)" { pnpm worker:ingest:diba --fresh }
+  Step "4/7 Andalucía censo (IECA, fresh)" { pnpm worker:ingest:andalucia --fresh }
   if ($NoFreshPbf) {
     Step "5/7 OSM Spain + censo evidence" { pnpm worker:ingest:osm:pbf -r spain }
   } else {

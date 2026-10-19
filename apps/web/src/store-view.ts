@@ -6,7 +6,13 @@ export type AnyStore = MapStore | NearbyStore;
 export type MarkerIntent = 'barra' | 'lata' | 'otro';
 
 /** Open-now state used to colour rings and write copy. */
-export type MarkerState = 'open' | 'estimated' | 'ordinance' | 'closed' | 'unconfirmed';
+export type MarkerState =
+  | 'open'
+  | 'estimated'
+  | 'estimated_closed'
+  | 'ordinance'
+  | 'closed'
+  | 'unconfirmed';
 
 export function intentOf(s: AnyStore): MarkerIntent {
   if (s.sells_onsite_beer) return 'barra';
@@ -21,7 +27,8 @@ export function statusOf(s: AnyStore): MarkerState {
   if (sells_beer_now) return hours_source === 'estimated' ? 'estimated' : 'open';
   // Open, but the takeaway ordinance is blocking a sale right now.
   if (open && reason.toLowerCase().includes('ordenanza')) return 'ordinance';
-  return 'closed';
+  if (open) return 'unconfirmed';
+  return hours_source === 'estimated' ? 'estimated_closed' : 'closed';
 }
 
 // Marker fill = intent (the lata/barra distinction the legend explains).
@@ -35,6 +42,7 @@ export const INTENT_COLOR: Record<MarkerIntent, string> = {
 export const STATE_RING: Record<MarkerState, string> = {
   open: '#16a34a', // green — confirmed hours
   estimated: '#4ade80', // lighter green — default schedule, "suele estar abierto"
+  estimated_closed: '#ffffff',
   ordinance: '#f59e0b', // amber warning
   unconfirmed: '#cbd5e1', // light grey
   closed: '#ffffff',
@@ -58,6 +66,16 @@ export const PLACE_TYPE_LABEL: Record<PlaceType, string> = {
 
 export function placeTypeLabel(s: AnyStore): string {
   return s.place_type ? PLACE_TYPE_LABEL[s.place_type] : 'Local';
+}
+
+export function displayName(s: AnyStore): string {
+  return s.name.trim() || `${placeTypeLabel(s)} sin nombre`;
+}
+
+export function nearestLabel(s: AnyStore): string {
+  return s.open_now.hours_source === 'estimated'
+    ? 'La más cercana que suele estar abierta'
+    : 'La más cercana según su horario';
 }
 
 /** Short human line for the place card, e.g. "Bar · En barra". */

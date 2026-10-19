@@ -35,8 +35,10 @@ Before changing anything, read:
 - Only a whole-Spain OSM ingest may prune unseen OSM rows.
 - Never use Madrid's ordinance or `Europe/Madrid` time as if they were a
   Spain-wide rule without an explicit geographic policy.
-- `ingest:madrid --limit` currently still runs soft-deactivation; do not use it
-  against a populated database as a harmless sample command.
+- Partial Madrid ingests must never deactivate records outside their sample.
+- Opening-hours evaluation uses place-local wall-clock dates; keep the API
+  process in UTC. Madrid's general sale window is scoped to its IGN municipal
+  polygon. Unknown local policy is not evidence of permission or prohibition.
 - Preserve source IDs, source names, import-run links, scoring versions, and
   timestamps. Prefer reversible exclusion over deletion.
 - Public serving is precision-first: `is_published` is separate from

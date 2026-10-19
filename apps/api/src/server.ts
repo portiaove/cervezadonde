@@ -6,6 +6,10 @@ import { registerHealthRoutes } from './routes/health.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerStoresRoutes } from './routes/stores.js';
 
+// opening_hours evaluates wall-clock dates. UTC avoids host DST gaps while
+// openNow.ts constructs each place's local date explicitly.
+process.env.TZ = 'UTC';
+
 const port = Number(process.env.API_PORT ?? 3001);
 const host = process.env.API_HOST ?? '0.0.0.0';
 const webOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:5173';

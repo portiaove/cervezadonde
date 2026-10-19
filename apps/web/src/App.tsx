@@ -1,5 +1,5 @@
-import type { Cluster, MapStore, NearbyStore, Ordinance } from '@cervezadonde/shared';
-import type { StyleSpecification } from 'maplibre-gl';
+import type { Cluster, MapStore, NearbyStore } from '@cervezadonde/shared';
+import maplibregl, { type StyleSpecification } from 'maplibre-gl';
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapGL, {
   AttributionControl,
@@ -24,8 +24,14 @@ import {
   fetchMeta,
   fetchNearby,
 } from './api.js';
-import { chooseOpeningView, loadStoredMapView, saveMapView } from './initial-view.js';
-import { INTENT_COLOR, STATE_RING, intentOf, statusOf } from './store-view.js';
+import {
+  chooseOpeningView,
+  getViewStorage,
+  isCanaryCoordinate,
+  loadStoredMapView,
+  saveMapView,
+} from './initial-view.js';
+import { INTENT_COLOR, STATE_RING, intentOf, nearestLabel, statusOf } from './store-view.js';
 
 type InitialViewState = NonNullable<ComponentProps<typeof MapGL>['initialViewState']>;
 
@@ -56,6 +62,19 @@ const MAP_STYLE: StyleSpecification = {
   layers: [{ id: 'basemap-tiles', type: 'raster', source: 'basemap' }],
 };
 
+const FALLBACK_MAP_STYLE: StyleSpecification = {
+  ...MAP_STYLE,
+  sources: {
+    basemap: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+};
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 const fmtCount = (n: number): string =>
@@ -82,6 +101,10 @@ const toApiFilters = (f: UiFilters): Filters => ({
 
 export function App() {
   const mapRef = useRef<MapRef | null>(null);
+  const mapReadyRef = useRef(false);
+  const mapRequestRef = useRef<AbortController | null>(null);
+  const nearestRequestRef = useRef<AbortController | null>(null);
+  const fallbackRef = useRef(false);
   const persistNextMoveRef = useRef(false);
   const [points, setPoints] = useState<MapStore[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -91,12 +114,16 @@ export function App() {
     intent: null,
     hideChains: false,
   });
-  const [now, setNow] = useState<string | null>(null);
-  const [ordinance, setOrdinance] = useState<Ordinance | null>(null);
+  const [now, setNow] = useState(() => new Date().toISOString());
+  const [timeZone, setTimeZone] = useState('Europe/Madrid');
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [nearest, setNearest] = useState<NearbyStore | null>(null);
   const [nearestLoading, setNearestLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [nearestError, setNearestError] = useState<string | null>(null);
+  const [fallbackMap, setFallbackMap] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   // Initial map view, resolved from IP geolocation before the map mounts so
@@ -119,7 +146,7 @@ export function App() {
       setInitialView(view);
     };
 
-    const savedView = loadStoredMapView(window.localStorage);
+    const savedView = loadStoredMapView(getViewStorage());
     if (savedView) {
       settle(savedView);
       return;
@@ -138,12 +165,18 @@ export function App() {
       .then((geo) => settle(chooseOpeningView(geo, timeZone, null)))
       .catch(() => settle(fallback))
       .finally(() => clearTimeout(timer));
-    return () => clearTimeout(timer);
+    return () => {
+      settled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   const refreshFromMap = useCallback(async () => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReadyRef.current) return;
+    mapRequestRef.current?.abort();
+    const request = new AbortController();
+    mapRequestRef.current = request;
     const b = map.getBounds();
     const bounds = {
       north: b.getNorth(),
@@ -152,44 +185,68 @@ export function App() {
       west: b.getWest(),
     };
     const z = map.getZoom();
+    const center = map.getCenter();
+    setTimeZone(isCanaryCoordinate(center.lat, center.lng) ? 'Atlantic/Canary' : 'Europe/Madrid');
     setLoading(true);
+    setDataError(null);
+    setPoints([]);
+    setClusters([]);
     try {
-      if (z > CLUSTER_MAX_ZOOM) {
+      if (z > CLUSTER_MAX_ZOOM || filtersRef.current.openNow) {
         // Zoomed in: individual coloured markers.
-        const res = await fetchMap(bounds, toApiFilters(filtersRef.current));
+        const res = await fetchMap(bounds, toApiFilters(filtersRef.current), 2000, request.signal);
+        if (request.signal.aborted) return;
         setPoints(res.results);
         setClusters([]);
-        setNow(res.now);
-        setOrdinance(res.ordinance);
+        setSelected((current) =>
+          current ? (res.results.find((s) => s.id === current.id) ?? null) : null,
+        );
       } else {
         // Wide zoom: server-aggregated count bubbles. Cell ≈ 64px wide.
         const widthDeg = Math.abs(bounds.east - bounds.west);
         const widthPx = map.getContainer().clientWidth || 400;
         const cell = clamp((widthDeg / widthPx) * 64, 0.0005, 20);
-        const res = await fetchClusters(bounds, cell, toApiFilters(filtersRef.current));
+        const res = await fetchClusters(
+          bounds,
+          cell,
+          toApiFilters(filtersRef.current),
+          request.signal,
+        );
+        if (request.signal.aborted) return;
         setClusters(res.clusters);
         setPoints([]);
       }
     } catch (err) {
+      if (request.signal.aborted) return;
       console.error('map refresh failed:', err);
+      setDataError('No se han podido cargar los locales. Comprueba tu conexión.');
     } finally {
-      setLoading(false);
+      if (!request.signal.aborted) setLoading(false);
     }
   }, []);
 
   const refreshNearest = useCallback(async (loc: { lat: number; lng: number }) => {
+    nearestRequestRef.current?.abort();
+    const request = new AbortController();
+    nearestRequestRef.current = request;
     setNearestLoading(true);
+    setNearestError(null);
+    setNearest(null);
     try {
       const res = await fetchNearby(
         { lat: loc.lat, lng: loc.lng, radius_m: 3000, limit: 1 },
         { ...toApiFilters(filtersRef.current), open_now: true },
+        request.signal,
       );
+      if (request.signal.aborted) return;
       setNearest(res.results[0] ?? null);
     } catch (err) {
+      if (request.signal.aborted) return;
       console.error('fetchNearby failed:', err);
       setNearest(null);
+      setNearestError('No se ha podido consultar los locales cercanos.');
     } finally {
-      setNearestLoading(false);
+      if (!request.signal.aborted) setNearestLoading(false);
     }
   }, []);
 
@@ -201,13 +258,51 @@ export function App() {
   }, []);
 
   // Re-query whenever filters change (viewport + nearest).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh fns are stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: both request functions read filters through filtersRef
   useEffect(() => {
+    setSelected(null);
     void refreshFromMap();
     if (userLoc) void refreshNearest(userLoc);
-  }, [filters, userLoc]);
+  }, [filters, userLoc, refreshFromMap, refreshNearest]);
+
+  useEffect(() => {
+    if (!initialView) return;
+    const timer = setTimeout(() => {
+      if (!mapReadyRef.current) {
+        setMapError('El mapa no ha podido iniciarse. Comprueba la conexión y vuelve a intentarlo.');
+      }
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, [initialView]);
+
+  // An open tab must not keep yesterday's hours/clock until the next pan.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      setNow(new Date().toISOString());
+      void refreshFromMap();
+      if (userLoc) void refreshNearest(userLoc);
+    };
+    const timer = setInterval(refresh, 60_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [refreshFromMap, refreshNearest, userLoc]);
+
+  useEffect(
+    () => () => {
+      mapReadyRef.current = false;
+      mapRequestRef.current?.abort();
+      nearestRequestRef.current?.abort();
+    },
+    [],
+  );
 
   const onLoad = useCallback(() => {
+    mapReadyRef.current = true;
+    setMapError(null);
     if (import.meta.env.DEV) {
       // Dev-only handle for browser automation; stripped from prod builds.
       (window as unknown as { __MAP__?: unknown }).__MAP__ = mapRef.current?.getMap();
@@ -228,7 +323,7 @@ export function App() {
   const onMoveEnd = useCallback(
     (e: ViewStateChangeEvent) => {
       if (persistNextMoveRef.current) {
-        saveMapView(window.localStorage, {
+        saveMapView(getViewStorage(), {
           longitude: e.viewState.longitude,
           latitude: e.viewState.latitude,
           zoom: e.viewState.zoom,
@@ -241,22 +336,26 @@ export function App() {
   );
 
   const locate = useCallback(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setDataError(
+        'Tu navegador no permite obtener la ubicación. Puedes buscar una calle o lugar.',
+      );
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLoc(loc);
         persistNextMoveRef.current = true;
         mapRef.current?.flyTo({ center: [loc.lng, loc.lat], zoom: 15 });
-        void refreshNearest(loc);
       },
-      (err) => console.warn('geolocation denied:', err.message),
+      () => setDataError('No se ha podido obtener tu ubicación. Puedes buscar una calle o lugar.'),
       { enableHighAccuracy: true, timeout: 8000 },
     );
-  }, [refreshNearest]);
+  }, []);
 
   const selectNearby = useCallback((s: NearbyStore) => {
-    setSelected(s as unknown as MapStore);
+    setSelected(s);
     persistNextMoveRef.current = true;
     mapRef.current?.flyTo({ center: [s.lng, s.lat], zoom: 16 });
   }, []);
@@ -288,7 +387,7 @@ export function App() {
       // Generous tap target: an 8 px circle is un-tappable on mobile, so look
       // for markers within a ±12 px box around the tap and take the closest.
       const map = mapRef.current;
-      if (!map) return;
+      if (!map || !map.getLayer('unclustered-point')) return;
       const PAD = 12;
       const feats = map.queryRenderedFeatures(
         [
@@ -309,7 +408,7 @@ export function App() {
         };
         return dist(f) < dist(best) ? f : best;
       });
-      const id = nearest.properties?.id as string | undefined;
+      const id = nearest.properties?.id?.toString();
       const match = id ? points.find((s) => s.id === id) : null;
       setSelected(match ?? null);
     },
@@ -324,24 +423,42 @@ export function App() {
   }, []);
 
   const pointsData = useMemo(() => pointsToGeoJson(points), [points]);
-  const empty = !loading && points.length === 0 && clusters.length === 0;
+  const empty = !loading && !dataError && points.length === 0 && clusters.length === 0;
 
   // Hold the map until the opening centre is decided (a few hundred ms at most)
   // so it mounts directly on the visitor's city — no Madrid→city jump.
   if (!initialView) {
-    return <div className="app app--booting" />;
+    return (
+      <div className="app app--booting">
+        <MapStatus loading empty={false} />
+      </div>
+    );
   }
 
   return (
     <div className="app">
       <MapGL
+        mapLib={maplibregl}
         ref={(r) => {
           mapRef.current = r;
         }}
         initialViewState={initialView}
-        mapStyle={MAP_STYLE}
+        mapStyle={fallbackMap ? FALLBACK_MAP_STYLE : MAP_STYLE}
         attributionControl={false}
         onLoad={onLoad}
+        onError={(event) => {
+          console.error('map render failed:', event.error);
+          if ('sourceId' in event && event.sourceId === 'basemap' && !fallbackRef.current) {
+            fallbackRef.current = true;
+            setFallbackMap(true);
+          } else {
+            setMapError(
+              mapReadyRef.current
+                ? 'No se ha podido cargar el fondo del mapa.'
+                : 'No se ha podido iniciar el mapa. Recarga la página o prueba otro navegador con WebGL.',
+            );
+          }
+        }}
         onMoveStart={onMoveStart}
         onMoveEnd={onMoveEnd}
         interactiveLayerIds={['unclustered-point']}
@@ -390,7 +507,12 @@ export function App() {
               'circle-opacity': [
                 'case',
                 ['==', ['get', 'verification'], 'unverified'],
-                ['case', ['==', ['get', 'state'], 'closed'], 0.35, 0.92],
+                [
+                  'case',
+                  ['in', ['get', 'state'], ['literal', ['closed', 'estimated_closed']]],
+                  0.35,
+                  0.92,
+                ],
                 [
                   'match',
                   ['get', 'state'],
@@ -440,7 +562,12 @@ export function App() {
               'circle-stroke-opacity': [
                 'case',
                 ['==', ['get', 'verification'], 'unverified'],
-                ['case', ['==', ['get', 'state'], 'closed'], 0.45, 0.9],
+                [
+                  'case',
+                  ['in', ['get', 'state'], ['literal', ['closed', 'estimated_closed']]],
+                  0.45,
+                  0.9,
+                ],
                 ['match', ['get', 'state'], 'open', 1, 'closed', 0.5, 0.85],
               ],
             }}
@@ -476,18 +603,23 @@ export function App() {
 
         {nearest && (
           <Marker longitude={nearest.lng} latitude={nearest.lat} anchor="center">
-            <span className="nearest-ring" title="La más cercana abierta" />
+            <span className="nearest-ring" title={nearestLabel(nearest)} />
           </Marker>
         )}
       </MapGL>
 
       <div className="top-left">
-        <TimeChip now={now} takeawayAllowed={ordinance?.takeaway_allowed ?? null} />
+        <TimeChip now={now} timeZone={timeZone} />
       </div>
 
       <SearchBox getBias={searchBias} onPick={goToSearchPick} />
 
-      <MapStatus loading={loading} empty={empty} />
+      <MapStatus
+        loading={!mapError && loading}
+        empty={empty}
+        error={mapError ?? dataError}
+        onRetry={() => (mapError ? window.location.reload() : void refreshFromMap())}
+      />
 
       {/* Bottom-anchored column: FAB, nearest-open card and the control bar
           stack naturally without manual offsets. */}
@@ -498,7 +630,13 @@ export function App() {
           </button>
         </div>
         {userLoc && (
-          <NearestOpenCard store={nearest} loading={nearestLoading} onSelect={selectNearby} />
+          <NearestOpenCard
+            store={nearest}
+            loading={nearestLoading}
+            onSelect={selectNearby}
+            error={nearestError}
+            onRetry={() => userLoc && void refreshNearest(userLoc)}
+          />
         )}
         <BottomBar filters={filters} onChange={setFilters} onMore={() => setSheetOpen(true)} />
       </div>

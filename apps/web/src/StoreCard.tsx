@@ -4,6 +4,7 @@ import {
   INTENT_COLOR,
   STATE_RING,
   directionsUrl,
+  displayName,
   intentOf,
   statusOf,
   subtitle,
@@ -19,9 +20,10 @@ const hasDistance = (s: CardStore): s is NearbyStore =>
   'distance_m' in s && typeof (s as NearbyStore).distance_m === 'number';
 
 const STATE_TEXT: Record<ReturnType<typeof statusOf>, string> = {
-  open: 'Puede servirte cerveza ahora',
+  open: 'Abierto según su horario',
   estimated: 'Suele estar abierto a esta hora',
-  ordinance: 'Abierto, pero no puede vender para llevar ahora',
+  estimated_closed: 'Suele estar cerrado a esta hora',
+  ordinance: 'Venta para llevar restringida según la regla general',
   closed: 'Cerrado ahora',
   unconfirmed: 'Horario no confirmado',
 };
@@ -51,7 +53,7 @@ export function StoreCard({
           style={{ background: INTENT_COLOR[intent], borderColor: STATE_RING[state] }}
           aria-hidden
         />
-        <h2>{store.name}</h2>
+        <h2>{displayName(store)}</h2>
       </div>
 
       <div className="meta">

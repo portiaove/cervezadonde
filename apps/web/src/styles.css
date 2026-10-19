@@ -29,6 +29,7 @@ body,
 .app {
   position: relative;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
   overflow: hidden;
 }
@@ -51,7 +52,7 @@ a {
   z-index: 6;
   top: calc(12px + var(--safe-top));
   left: 12px;
-  right: 56px; /* leave room for the map's compact attribution ⓘ */
+  right: 100px; /* clear search and attribution controls */
   pointer-events: none;
 }
 .top-left > * {
@@ -67,6 +68,29 @@ a {
   padding: 6px 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   font-size: 13px;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.map-status.map-status--error {
+  white-space: normal;
+  max-width: min(90vw, 420px);
+  pointer-events: auto;
+  border-radius: 12px;
+}
+
+.map-status button,
+.nearest--muted button {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  cursor: pointer;
+}
+
+.status--estimated_closed {
+  color: var(--muted);
 }
 .time-chip__clock {
   font-weight: 700;

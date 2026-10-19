@@ -4,6 +4,14 @@
 
 Accepted — 2026-06-02.
 
+Corrected 2026-10-19: the original 22:00–09:00 premise below was wrong. The
+general window in Ley 5/2002 art. 30.4 is 22:00–08:00, subject to local rules
+and licence exceptions. Runtime dispatch now applies the checked Madrid rule
+only inside the IGN municipality polygon; it never treats this as a national
+rule. Other areas explicitly report unknown sale policy. See
+[`docs/20-browser-reliability-audit.md`](../docs/20-browser-reliability-audit.md)
+for sources and remaining limits. The original decision is retained as history.
+
 ## Context
 
 Madrid's municipal ordinance prohibits the sale of alcohol for takeaway

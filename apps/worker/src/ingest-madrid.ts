@@ -354,6 +354,11 @@ export async function ingestMadrid(opts: {
 
     const candidates = await aggregateCandidates(sql, opts.limit ?? null, log);
     candidatesTotal = candidates.length;
+    if (candidatesTotal === 0) {
+      throw new Error(
+        'Madrid ingest produced no candidates; refusing to deactivate existing data.',
+      );
+    }
 
     const chainPatterns = await loadChainPatterns(sql);
     log(`scoring + upserting ${candidates.length} candidates...`);
@@ -378,8 +383,12 @@ export async function ingestMadrid(opts: {
       if (i % 500 === 0) log(`  upserted ${i}/${candidates.length}`);
     }
 
-    deactivated = await softDeactivateMissing(sql, importRunId);
-    log(`soft-deactivated ${deactivated} previously-seen stores`);
+    if (opts.limit !== undefined) {
+      log('partial ingest: missing-row deactivation skipped');
+    } else {
+      deactivated = await softDeactivateMissing(sql, importRunId);
+      log(`soft-deactivated ${deactivated} previously-seen stores`);
+    }
 
     await sql`
       UPDATE import_runs SET

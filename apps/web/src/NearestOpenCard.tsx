@@ -1,5 +1,13 @@
 import type { NearbyStore } from '@cervezadonde/shared';
-import { INTENT_COLOR, directionsUrl, intentOf, subtitle, unverifiedNote } from './store-view.js';
+import {
+  INTENT_COLOR,
+  directionsUrl,
+  displayName,
+  intentOf,
+  nearestLabel,
+  subtitle,
+  unverifiedNote,
+} from './store-view.js';
 
 const formatDistance = (m: number): string =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
@@ -12,18 +20,33 @@ export function NearestOpenCard({
   store,
   loading,
   onSelect,
+  error,
+  onRetry,
 }: {
   store: NearbyStore | null;
   loading: boolean;
   onSelect: (s: NearbyStore) => void;
+  error?: string | null;
+  onRetry?: () => void;
 }) {
   if (loading) {
     return <div className="nearest nearest--muted">Buscando la cerveza abierta más cercana…</div>;
   }
+  if (error) {
+    return (
+      <div className="nearest nearest--muted" role="alert">
+        {error}{' '}
+        <button type="button" onClick={onRetry}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
   if (!store) {
     return (
       <div className="nearest nearest--muted">
-        No hay cerveza abierta a menos de 3 km. Prueba a mover el mapa.
+        No encontramos locales abiertos según sus horarios a menos de 3 km de tu ubicación con estos
+        filtros.
       </div>
     );
   }
@@ -33,15 +56,18 @@ export function NearestOpenCard({
   return (
     <div className="nearest">
       <button type="button" className="nearest__main" onClick={() => onSelect(store)}>
-        <span className="nearest__eyebrow">🍺 La más cercana abierta</span>
+        <span className="nearest__eyebrow">🍺 {nearestLabel(store)}</span>
         <span className="nearest__name">
           <span className="dot" style={{ background: INTENT_COLOR[intent] }} aria-hidden />
-          {store.name}
+          {displayName(store)}
         </span>
         <span className="nearest__meta">
           {subtitle(store)} · {formatDistance(store.distance_m)}
-          {store.open_now.closes_at ? ` · hasta las ${store.open_now.closes_at}` : ''}
+          {store.open_now.closes_at
+            ? ` · ${store.open_now.hours_source === 'estimated' ? 'suele cerrar a las' : 'hasta las'} ${store.open_now.closes_at}`
+            : ''}
           {store.open_now.hours_source === 'estimated' ? ' · horario estimado' : ''}
+          {store.open_now.sale_policy === 'unknown' ? ' · venta para llevar por confirmar' : ''}
         </span>
         {unverified ? <span className="nearest__unverified">⚠️ {unverified}</span> : null}
       </button>
@@ -50,7 +76,7 @@ export function NearestOpenCard({
         href={directionsUrl(store)}
         target="_blank"
         rel="noreferrer"
-        aria-label={`Cómo llegar a ${store.name}`}
+        aria-label={`Cómo llegar a ${displayName(store)}`}
       >
         🧭
       </a>

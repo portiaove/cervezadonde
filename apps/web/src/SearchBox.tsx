@@ -59,17 +59,28 @@ export function SearchBox({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const close = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setOpen(false);
     setQuery('');
     setResults([]);
     setSearched(false);
+    setError(false);
     abortRef.current?.abort();
   }, []);
+
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -95,20 +106,30 @@ export function SearchBox({
         qs.set('lon', bias.lng.toFixed(4));
       }
       fetch(`${PHOTON_URL}?${qs.toString()}`, { signal: ctrl.signal })
-        .then((r) => (r.ok ? r.json() : { features: [] }))
+        .then((r) => {
+          if (!r.ok) throw new Error(`search failed: ${r.status}`);
+          return r.json();
+        })
         .then((data: { features?: PhotonFeature[] }) => {
+          if (ctrl.signal.aborted) return;
           setResults((data.features ?? []).map(toResult).filter((r): r is Result => r !== null));
           setSearched(true);
         })
         .catch(() => {
-          /* aborted or offline — keep whatever is shown */
+          if (!ctrl.signal.aborted) setError(true);
         });
     },
     [getBias],
   );
 
   const onChange = (value: string) => {
+    // Invalidate immediately, not after the debounce: a previous query may
+    // finish in those 300 ms and show results for text no longer in the input.
+    abortRef.current?.abort();
     setQuery(value);
+    setResults([]);
+    setSearched(false);
+    setError(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => runSearch(value), 300);
   };
@@ -189,6 +210,13 @@ export function SearchBox({
       {searched && results.length === 0 && query.trim().length >= 3 && (
         <div className="search__results">
           <div className="search__empty">Sin resultados</div>
+        </div>
+      )}
+      {error && (
+        <div className="search__results">
+          <div className="search__empty" role="alert">
+            No se ha podido buscar. Comprueba tu conexión y vuelve a escribir.
+          </div>
         </div>
       )}
     </div>

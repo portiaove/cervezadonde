@@ -31,6 +31,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm test
+      - run: pnpm typecheck
+
       # Uses .env.production -> VITE_API_URL=/api (same-origin via Caddy).
       - run: pnpm --filter @cervezadonde/web build
 
@@ -44,10 +47,13 @@ jobs:
       - name: Upload web build
         run: |
           HOST="root@${{ secrets.DEPLOY_HOST }}"
-          # Clear the directory CONTENTS (keep the inode) so Caddy's bind mount
-          # stays valid — deleting the dir itself makes the mount go stale (404).
-          ssh -i ~/.ssh/id_ed25519 "$HOST" 'mkdir -p /root/cervezadonde/deploy/web-dist && find /root/cervezadonde/deploy/web-dist -mindepth 1 -delete'
-          scp -i ~/.ssh/id_ed25519 -r apps/web/dist/* "$HOST":/root/cervezadonde/deploy/web-dist/
+          # Keep old hashed chunks for cached pages and already-open tabs.
+          # Upload dependencies first, then atomically publish the new index.
+          ssh -i ~/.ssh/id_ed25519 "$HOST" 'mkdir -p /root/cervezadonde/deploy/web-dist/assets'
+          scp -i ~/.ssh/id_ed25519 -r apps/web/dist/assets/. "$HOST":/root/cervezadonde/deploy/web-dist/assets/
+          scp -i ~/.ssh/id_ed25519 apps/web/dist/favicon.svg "$HOST":/root/cervezadonde/deploy/web-dist/favicon.svg
+          scp -i ~/.ssh/id_ed25519 apps/web/dist/index.html "$HOST":/root/cervezadonde/deploy/web-dist/index.html.next
+          ssh -i ~/.ssh/id_ed25519 "$HOST" 'mv /root/cervezadonde/deploy/web-dist/index.html.next /root/cervezadonde/deploy/web-dist/index.html'
 
       - name: Pull code, migrate/refine data, then replace API
         run: |
@@ -64,13 +70,12 @@ jobs:
               up -d
           '
 
-      # Config must follow code too, same rule as migrations: `git pull` updates
-      # the bind-mounted Caddyfile but `compose up -d` won't restart caddy for
-      # it. Graceful zero-downtime reload; a no-op when the config is unchanged.
-      - name: Reload Caddy config
+      # git pull can replace the Caddyfile inode. A reload in the old container
+      # then reads the stale file bind mount, so recreate to bind the new file.
+      - name: Recreate Caddy with the current config
         run: |
           ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.DEPLOY_HOST }}" '
             cd /root/cervezadonde &&
             docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod \
-              exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+              up -d --no-deps --force-recreate caddy
           '

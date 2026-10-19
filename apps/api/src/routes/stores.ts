@@ -13,6 +13,7 @@ import {
   type PlaceType,
 } from '@cervezadonde/shared';
 import type { FastifyInstance } from 'fastify';
+import { type Coordinates, isMadridMunicipality } from '../geography.js';
 import { ORDINANCE, canSellBeerNow, isAlcoholTakeawayProhibited } from '../openNow.js';
 import { rankOpenByTrustThenDistance } from '../ranking.js';
 
@@ -48,9 +49,10 @@ const parseNow = (at_time: string | undefined): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
-const buildOrdinance = (now: Date): Ordinance => ({
-  takeaway_allowed: !isAlcoholTakeawayProhibited(now),
-  window: ORDINANCE.label,
+const buildOrdinance = (now: Date, place: Coordinates): Ordinance => ({
+  takeaway_allowed: isMadridMunicipality(place) ? !isAlcoholTakeawayProhibited(now) : null,
+  window: isMadridMunicipality(place) ? ORDINANCE.label : '',
+  scope: isMadridMunicipality(place) ? 'madrid_general' : 'unknown',
 });
 
 const enrichWithOpenNow = <T extends SharedRow>(
@@ -63,6 +65,9 @@ const enrichWithOpenNow = <T extends SharedRow>(
     {
       place_type: row.place_type ?? 'otro',
       sells_takeaway_beer: row.sells_takeaway_beer,
+      sells_onsite_beer: row.sells_onsite_beer,
+      lat: row.lat,
+      lng: row.lng,
       opening_hours_osm: row.opening_hours_osm,
       opening_hours_web: row.opening_hours_web,
     },
@@ -191,7 +196,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
 
     const response: NearbyResponse = {
       now: now.toISOString(),
-      ordinance: buildOrdinance(now),
+      ordinance: buildOrdinance(now, { lat, lng }),
       results,
     };
     return response;
@@ -268,7 +273,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
 
     const response: MapResponse = {
       now: now.toISOString(),
-      ordinance: buildOrdinance(now),
+      ordinance: buildOrdinance(now, { lat: (north + south) / 2, lng: (east + west) / 2 }),
       results,
     };
     return response;

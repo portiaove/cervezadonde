@@ -7,8 +7,9 @@ export const Intent = z.enum(['consume_aqui', 'para_llevar']);
 export type Intent = z.infer<typeof Intent>;
 
 export const Ordinance = z.object({
-  takeaway_allowed: z.boolean(),
+  takeaway_allowed: z.boolean().nullable(),
   window: z.string(),
+  scope: z.enum(['madrid_general', 'unknown']).optional(),
 });
 export type Ordinance = z.infer<typeof Ordinance>;
 
@@ -25,6 +26,12 @@ const placeTypeListParam = z
   )
   .pipe(z.array(PlaceType).optional());
 
+// Boolean('false') is true. Parse HTTP query strings explicitly.
+const booleanParam = z.preprocess(
+  (value) => (value === 'true' ? true : value === 'false' ? false : value),
+  z.boolean().default(false),
+);
+
 // --- Nearby (lat/lng + radius) --------------------------------------------
 
 export const NearbyQuery = z.object({
@@ -34,10 +41,10 @@ export const NearbyQuery = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
   place_type: placeTypeListParam,
   intent: Intent.optional(),
-  open_now: z.coerce.boolean().default(false),
+  open_now: booleanParam,
   at_time: z.string().optional(),
   min_confidence: ConfidenceLevel.optional(),
-  hide_chains: z.coerce.boolean().default(false),
+  hide_chains: booleanParam,
 });
 export type NearbyQuery = z.infer<typeof NearbyQuery>;
 
@@ -58,10 +65,10 @@ export const MapQuery = z.object({
   limit: z.coerce.number().int().positive().max(2000).default(500),
   place_type: placeTypeListParam,
   intent: Intent.optional(),
-  open_now: z.coerce.boolean().default(false),
+  open_now: booleanParam,
   at_time: z.string().optional(),
   min_confidence: ConfidenceLevel.optional(),
-  hide_chains: z.coerce.boolean().default(false),
+  hide_chains: booleanParam,
 });
 export type MapQuery = z.infer<typeof MapQuery>;
 
@@ -92,7 +99,7 @@ export const ClusterQuery = z.object({
   place_type: placeTypeListParam,
   intent: Intent.optional(),
   min_confidence: ConfidenceLevel.optional(),
-  hide_chains: z.coerce.boolean().default(false),
+  hide_chains: booleanParam,
 });
 export type ClusterQuery = z.infer<typeof ClusterQuery>;
 

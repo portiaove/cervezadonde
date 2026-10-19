@@ -49,6 +49,16 @@ type StoredView = PointView & {
 
 type ViewStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
+// The property getter itself can throw (privacy mode, blocked site storage).
+// Catching only getItem/setItem leaves the app stuck before its boot timeout.
+export function getViewStorage(): ViewStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
@@ -104,10 +114,10 @@ export function chooseOpeningView(
   };
 }
 
-export function loadStoredMapView(storage: ViewStorage, now = Date.now()): PointView | null {
+export function loadStoredMapView(storage: ViewStorage | null, now = Date.now()): PointView | null {
   try {
     const parsed = JSON.parse(
-      storage.getItem(VIEW_STORAGE_KEY) ?? 'null',
+      storage?.getItem(VIEW_STORAGE_KEY) ?? 'null',
     ) as Partial<StoredView> | null;
     if (
       parsed?.version !== 1 ||
@@ -133,7 +143,7 @@ export function loadStoredMapView(storage: ViewStorage, now = Date.now()): Point
   }
 }
 
-export function saveMapView(storage: ViewStorage, view: PointView, now = Date.now()): void {
+export function saveMapView(storage: ViewStorage | null, view: PointView, now = Date.now()): void {
   if (
     !isFiniteNumber(view.longitude) ||
     !isFiniteNumber(view.latitude) ||
@@ -144,7 +154,7 @@ export function saveMapView(storage: ViewStorage, view: PointView, now = Date.no
   }
   try {
     const stored: StoredView = { ...view, version: 1, savedAt: now };
-    storage.setItem(VIEW_STORAGE_KEY, JSON.stringify(stored));
+    storage?.setItem(VIEW_STORAGE_KEY, JSON.stringify(stored));
   } catch {
     // Storage may be disabled or full; opening the map must still work.
   }
