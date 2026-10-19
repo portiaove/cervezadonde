@@ -1,6 +1,12 @@
 \set ON_ERROR_STOP on
+-- "published" is the retained OSM backbone; api_visible is the effective
+-- serving boundary after beer eligibility and moderated corrections.
 SELECT json_build_object(
   'physical_rows', (SELECT count(*) FROM stores),
+  'api_visible', (SELECT count(*) FROM serving_stores),
+  'api_schedule_sources', (SELECT count(*) FROM serving_stores WHERE reviewed_hours IS NOT NULL OR (NOT hours_disputed AND place_type<>'gasolinera' AND (opening_hours_osm IS NOT NULL OR (opening_hours_web IS NOT NULL AND hours_web_observed_at>now()-interval '180 days')))),
+  'pending_reports', (SELECT count(*) FROM place_reports WHERE status='pending'),
+  'retained_corrections', (SELECT count(*) FROM place_corrections),
   'published', (SELECT count(*) FROM stores WHERE is_published AND confidence_level <> 'excluded'),
   'published_non_osm', (SELECT count(*) FROM stores WHERE is_published AND confidence_level <> 'excluded' AND source_name <> 'osm'),
   'canary_published', (SELECT count(*) FROM stores WHERE is_published AND confidence_level <> 'excluded' AND ST_Y(geom) BETWEEN 27.5 AND 29.6 AND ST_X(geom) BETWEEN -18.3 AND -13.2),

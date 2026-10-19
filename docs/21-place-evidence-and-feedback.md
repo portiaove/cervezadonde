@@ -124,9 +124,43 @@ and the isolated HTTP/moderation/snapshot test. The latter exposed an enum
 transaction issue during development; the new migration compares the legacy
 fuel type as text so full bootstrap is safe too.
 
-Data-publication and final public-probe results follow after deployment.
-Tests of software behaviour do not establish the physical
-accuracy of every shop; further category/region-stratified field review remains
+## Production handoff
+
+Implementation commits `c65d22a`, `5b0f383`, `c2fc612` and restore correction
+`4232153` are pushed to main. Production was checked at 16:06 UTC on
+2026-10-19: 176,066 API-visible candidates and 26,123 with a usable-source
+schedule, with all 245,305 physical rows retained. The full public HTTP smoke
+passes in all nine cities, serves the current OSM-only web assets and validates
+the report POST route with an invalid payload (400; no artificial public report
+was inserted). Tower Paradise is explicitly unknown and absent from open-now;
+the unsupported Francos Rodríguez 75 fuel record is absent from public results.
+
+GitHub [reported an Actions/Pages incident](https://www.githubstatus.com/)
+from 15:49 UTC; its run metadata continued to report queued jobs even while
+the server had already received the revision. Rather than claim a green CI
+result from those inconsistent statuses, publication was verified using the
+documented manual SSH procedure and the equivalent completed local gates,
+including empty-PostGIS bootstrap and actual canonical-ingest integration.
+The final queued Actions run is
+[39282697055](https://github.com/portiaove/cervezadonde/actions/runs/39282697055).
+Its future execution is idempotent; no CI success is asserted here.
+
+The first data-publication attempt rolled back at the new evidence guard:
+pg_dump clears `search_path`, so the guard's unqualified table references could
+not resolve. The prior catalogue and evidence were preserved. `4232153`
+schema-qualifies the guard, and the integration test now executes the actual
+production guard after clearing search_path. The repeat publication completed
+with `COMMIT` (45 imports, 245,305 stores, 22,356 activities).
+
+Full recovery copies remain at `logs/backups/before-evidence-20261019.dump`
+locally and `/root/cervezadonde/logs/backups/before-evidence-20261019.dump`
+on the VPS. The VPS also retained the automatic evidence archives from both
+publication attempts. Temporary test schemas and the disposable clean-DB
+container were removed; the local API/watch helper is stopped at handoff and
+the user's original PostgreSQL/Docker remain running.
+
+Tests of software behaviour do not establish the physical accuracy of every
+shop; further category/region-stratified field review remains
 necessary. Ambiguous cafe/restaurant/kiosk category inference is still labelled
 likely, not verified; this update does not pretend the whole catalogue has
 been individually checked.
