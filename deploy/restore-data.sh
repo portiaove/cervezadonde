@@ -32,8 +32,9 @@ SQL
 DO $validation$
 BEGIN
   IF EXISTS (SELECT 1 FROM quality_before_restore
-    WHERE reports <> (SELECT count(*) FROM place_reports)
-       OR corrections <> (SELECT count(*) FROM place_corrections)) THEN
+    -- Concurrent new reports are legitimate; only loss is a restore failure.
+    WHERE reports > (SELECT count(*) FROM place_reports)
+       OR corrections > (SELECT count(*) FROM place_corrections)) THEN
     RAISE EXCEPTION 'snapshot restore changed production-owned evidence';
   END IF;
   IF EXISTS (
