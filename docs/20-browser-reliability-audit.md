@@ -147,7 +147,7 @@ and [separate Canary Islands extract](https://download.geofabrik.de/africa/canar
 ## Production validation and data renewal
 
 Code commits `735b0c1` and `7011f5d` deployed successfully through GitHub Actions
-on 2026-10-19. The final deployed code is `bb4f53d`, including crawler source
+on 2026-10-19. This phase's deployed code was `bb4f53d`, including crawler source
 exclusions. Its [deployment workflow](https://github.com/portiaove/cervezadonde/actions/runs/39246249709)
 passed tests, types, full lint, web build and deployment. All 233 automated
 tests (API 61, web 24, worker 148), workspace typechecking, lint and build also
@@ -239,5 +239,12 @@ locally in `logs/map-diagnosis-20261019/`.
 All 234 automated tests (API 61, web 25, worker 148), full typechecking, lint
 and the production workspace build pass after this correction. The corrected
 local static build also passes the new smoke suite against the production API.
-Deployment and public smoke results are recorded when completed. No browser is connected to the automation runtime;
-individual tile inspection is not a full browser/WebGL rendering test.
+The public smoke also passed after the corrected web assets were published:
+the actual served JS contains the OSM source and no CARTO URL, all nine city
+checks pass, and the production inventory/hours counts remain unchanged.
+Correction `3264bb6` deployed successfully through
+[GitHub Actions](https://github.com/portiaove/cervezadonde/actions/runs/39254726161),
+including all CI checks and server/Caddy replacement. The disposable local
+static-validation container was stopped; PostgreSQL remains running.
+No browser is connected to the automation runtime; individual tile inspection
+is not a full browser/WebGL rendering test.
