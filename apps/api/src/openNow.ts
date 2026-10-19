@@ -34,6 +34,9 @@ export type PlaceForOpenNow = Coordinates & {
   opening_hours_osm: string | null;
   /** Hours crawled from the business website (crawl:hours). Optional for callers without it. */
   opening_hours_web?: string | null;
+  hours_web_observed_at?: Date | string | null;
+  hours_disputed?: boolean;
+  reviewed_hours?: string | null;
 };
 
 export type IsOpenResult = {
@@ -41,33 +44,16 @@ export type IsOpenResult = {
   closes_at: string | null;
 };
 
-export type HoursSource = 'osm' | 'website' | 'estimated' | 'none';
+export type HoursSource = 'osm' | 'website' | 'reviewed' | 'none';
 
 export type CanSellBeerResult = {
   open: boolean;
+  status: 'open' | 'closed' | 'unknown';
   closes_at: string | null;
   sells_beer_now: boolean;
   reason: string;
   hours_source: HoursSource;
   sale_policy: 'madrid_general' | 'not_applicable' | 'unknown';
-};
-
-/**
- * Typical Spanish schedules per place_type, applied ONLY when a place has no
- * real hours — and always labelled "horario habitual (no confirmado)" in the
- * verdict, never presented as confirmed. Standard OSM opening_hours syntax so
- * they flow through the same parser as real data. 'otro' gets no estimate.
- */
-export const DEFAULT_HOURS_BY_TYPE: Record<PlaceForOpenNow['place_type'], string | null> = {
-  bar: 'Mo-Th 09:00-01:00; Fr-Sa 09:00-02:00; Su 10:00-24:00',
-  supermercado: 'Mo-Sa 09:00-21:30; Su 10:00-15:00',
-  alimentacion: 'Mo-Su 10:00-22:00',
-  bodega: 'Mo-Sa 10:00-14:00,17:00-20:30',
-  tienda_24h: '24/7',
-  // Only used for a fuel+shop station whose OSM hours are missing; bare pumps
-  // without hours are dropped at ingest. Conservative estimate, never "24/7".
-  gasolinera: 'Mo-Su 06:00-24:00',
-  otro: null,
 };
 
 // --- timezone helpers ------------------------------------------------------
@@ -206,9 +192,9 @@ function evaluateHours(
 
 /**
  * Beer-availability verdict for a place at `now`. Encodes:
- * - Real OSM hours when present; otherwise the place_type's default schedule,
- *   flagged hours_source='estimated' ("suele estar abierto/cerrado").
- * - No hours and no default → "horario no confirmado" (hours_source='none').
+ * - No category-based schedules: absence is unknown, never open/closed.
+ * - Fuel opening_hours describe pumps, not a shop. Only reviewed shop hours
+ *   may establish an open-now recommendation for a combined fuel POI.
  * - Bar serving on-site → not subject to the takeaway ordinance.
  * - Shop with takeaway-beer flag → subject to the ordinance.
  * - Shop without takeaway-beer flag → never sells beer.
@@ -220,48 +206,51 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
     : isMadridMunicipality(place)
       ? 'madrid_general'
       : 'unknown';
-  // Confirmed hours: OSM first (community-curated), then the business's own
-  // website (crawl:hours); only without both does the estimate kick in.
-  const osmHours = place.opening_hours_osm?.trim() || null;
-  const webHours = place.opening_hours_web?.trim() || null;
-  const candidates: Array<[HoursSource, string | null]> =
-    osmHours || webHours
-      ? [
-          ['osm', osmHours],
-          ['website', webHours],
-        ]
-      : [['estimated', DEFAULT_HOURS_BY_TYPE[place.place_type]]];
-  let verdict: IsOpenResult | null = null;
-  let hours_source: HoursSource = 'none';
-  for (const [source, hours] of candidates) {
-    if (!hours) continue;
-    verdict = evaluateHours(hours, now, place);
-    if (verdict) {
-      hours_source = source;
-      break;
-    }
+  const unknown = (reason: string): CanSellBeerResult => ({
+    open: false,
+    status: 'unknown',
+    closes_at: null,
+    sells_beer_now: false,
+    reason,
+    hours_source: 'none',
+    sale_policy,
+  });
+  const reviewed = place.reviewed_hours ? evaluateHours(place.reviewed_hours, now, place) : null;
+  if (place.hours_disputed && !reviewed)
+    return unknown('Horario señalado como incorrecto; pendiente de comprobar.');
+  const osm =
+    place.place_type === 'gasolinera' ? null : evaluateHours(place.opening_hours_osm, now, place);
+  const observed = place.hours_web_observed_at
+    ? new Date(place.hours_web_observed_at).getTime()
+    : Number.NaN;
+  const webFresh =
+    Number.isFinite(observed) &&
+    observed <= now.getTime() &&
+    now.getTime() - observed <= 180 * 86_400_000;
+  const web =
+    place.place_type === 'gasolinera' || !webFresh
+      ? null
+      : evaluateHours(place.opening_hours_web ?? null, now, place);
+  if (!reviewed && osm && web && osm.open !== web.open) {
+    return unknown('Las fuentes discrepan sobre el horario; pendiente de comprobar.');
   }
-  const estimated = hours_source === 'estimated';
-
-  // No hours and no sensible default — be conservative, don't claim anything.
-  if (!verdict) {
-    return {
-      open: false,
-      closes_at: null,
-      sells_beer_now: false,
-      reason: 'Horario no confirmado.',
-      hours_source,
-      sale_policy,
-    };
-  }
+  const verdict = reviewed ?? osm ?? web;
+  const hours_source: HoursSource = reviewed ? 'reviewed' : osm ? 'osm' : web ? 'website' : 'none';
+  if (!verdict)
+    return unknown(
+      place.place_type === 'gasolinera'
+        ? 'Horario de la tienda no confirmado; el horario de los surtidores no es suficiente.'
+        : 'Horario no confirmado.',
+    );
 
   const { open, closes_at } = verdict;
   if (!open) {
     return {
       open: false,
+      status: 'closed',
       closes_at: null,
       sells_beer_now: false,
-      reason: estimated ? 'Suele estar cerrado a esta hora (horario no confirmado).' : 'Cerrado.',
+      reason: 'Cerrado según su horario.',
       hours_source,
       sale_policy,
     };
@@ -271,13 +260,11 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
   if (onsite) {
     return {
       open: true,
+      status: 'open',
       closes_at,
       sells_beer_now: true,
-      reason: estimated
-        ? 'Suele estar abierto a esta hora (horario no confirmado).'
-        : hours_source === 'website'
-          ? 'Bar abierto (horario de su web).'
-          : 'Bar abierto en horario habitual.',
+      reason:
+        'Abierto según su horario. La categoría indica que probablemente sirve cerveza; no es una comprobación en directo.',
       hours_source,
       sale_policy,
     };
@@ -287,9 +274,10 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
   if (!place.sells_takeaway_beer) {
     return {
       open: true,
+      status: 'open',
       closes_at,
       sells_beer_now: false,
-      reason: 'No vende alcohol para llevar.',
+      reason: 'No consta venta de cerveza para llevar.',
       hours_source,
       sale_policy,
     };
@@ -299,6 +287,7 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
   if (sale_policy === 'madrid_general' && isAlcoholTakeawayProhibited(now)) {
     return {
       open: true,
+      status: 'open',
       closes_at,
       sells_beer_now: false,
       reason: `Ordenanza municipal: restricción general en Madrid de ${ORDINANCE.label}; puede haber excepciones por licencia.`,
@@ -309,16 +298,13 @@ export function canSellBeerNow(place: PlaceForOpenNow, now: Date): CanSellBeerRe
 
   return {
     open: true,
+    status: 'open',
     closes_at,
     sells_beer_now: true,
     reason:
       sale_policy === 'unknown'
-        ? `${estimated ? 'Suele estar abierto (horario no confirmado).' : 'Abierto según su horario.'} Venta para llevar sujeta a normativa local no evaluada.`
-        : estimated
-          ? 'Suele estar abierto (horario no confirmado). Puede venderte cerveza para llevar.'
-          : hours_source === 'website'
-            ? 'Abierto (horario de su web). Puede venderte cerveza para llevar.'
-            : 'Abierto. Puede venderte cerveza para llevar.',
+        ? 'Abierto según su horario. Venta para llevar sujeta a normativa local no evaluada; disponibilidad de cerveza no comprobada en directo.'
+        : 'Abierto según su horario. Venta de cerveza para llevar probable por su categoría, no comprobada en directo.',
     hours_source,
     sale_policy,
   };

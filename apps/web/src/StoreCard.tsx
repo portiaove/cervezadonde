@@ -1,4 +1,5 @@
 import type { MapStore, NearbyStore } from '@cervezadonde/shared';
+import { ReportPlace } from './ReportPlace.js';
 import {
   type AnyStore,
   INTENT_COLOR,
@@ -24,7 +25,7 @@ const STATE_TEXT: Record<ReturnType<typeof statusOf>, string> = {
   estimated: 'Suele estar abierto a esta hora',
   estimated_closed: 'Suele estar cerrado a esta hora',
   ordinance: 'Venta para llevar restringida según la regla general',
-  closed: 'Cerrado ahora',
+  closed: 'Cerrado según su horario',
   unconfirmed: 'Horario no confirmado',
 };
 
@@ -68,6 +69,40 @@ export function StoreCard({
       </div>
 
       <div className="meta reason">{store.open_now.reason}</div>
+      {store.quality && (
+        <div className="meta quality-note">
+          {store.quality.beer === 'documented'
+            ? 'Cerveza indicada en OSM; no garantiza existencias.'
+            : 'Cerveza probable por el tipo de local, no verificada.'}
+          <br />
+          Horario:{' '}
+          {store.open_now.hours_source === 'osm'
+            ? 'OpenStreetMap'
+            : store.open_now.hours_source === 'website'
+              ? 'web del local'
+              : store.open_now.hours_source === 'reviewed'
+                ? 'corrección revisada'
+                : 'desconocido'}
+          .
+          {store.quality.hours_source_url && (
+            <>
+              {' '}
+              <a href={store.quality.hours_source_url} target="_blank" rel="noreferrer">
+                Ver fuente
+              </a>
+              .
+            </>
+          )}
+          {store.quality.osm_updated_at && (
+            <>
+              {' '}
+              Última edición del objeto OSM:{' '}
+              {new Date(store.quality.osm_updated_at).toLocaleDateString('es-ES')}; no es una
+              visita.
+            </>
+          )}
+        </div>
+      )}
 
       {unverifiedNote(store) ? (
         <div className="unverified-note">
@@ -84,6 +119,7 @@ export function StoreCard({
       <a className="cta-directions" href={directionsUrl(store)} target="_blank" rel="noreferrer">
         <span aria-hidden>🧭</span> Cómo llegar
       </a>
+      <ReportPlace key={store.id} id={store.id} />
     </div>
   );
 }

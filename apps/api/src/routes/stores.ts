@@ -31,6 +31,14 @@ type SharedRow = {
   sells_onsite_beer: boolean;
   opening_hours_osm: string | null;
   opening_hours_web: string | null;
+  hours_web_observed_at: Date | null;
+  osm_element_updated_at: Date | null;
+  hours_disputed: boolean;
+  reviewed_hours: string | null;
+  beer_evidence: 'likely' | 'documented' | 'unknown' | 'no';
+  beer_evidence_reason: string;
+  osm_source_id: string;
+  website: string | null;
   badges: NearbyStore['badges'];
   confidence_level: NearbyStore['confidence_level'];
   confidence_score: number;
@@ -55,12 +63,7 @@ const buildOrdinance = (now: Date, place: Coordinates): Ordinance => ({
   scope: isMadridMunicipality(place) ? 'madrid_general' : 'unknown',
 });
 
-const enrichWithOpenNow = <T extends SharedRow>(
-  row: T,
-  now: Date,
-): Omit<T, 'opening_hours_osm' | 'opening_hours_web'> & {
-  open_now: ReturnType<typeof canSellBeerNow>;
-} => {
+const enrichWithOpenNow = <T extends SharedRow>(row: T, now: Date) => {
   const open_now = canSellBeerNow(
     {
       place_type: row.place_type ?? 'otro',
@@ -70,11 +73,50 @@ const enrichWithOpenNow = <T extends SharedRow>(
       lng: row.lng,
       opening_hours_osm: row.opening_hours_osm,
       opening_hours_web: row.opening_hours_web,
+      hours_web_observed_at: row.hours_web_observed_at,
+      hours_disputed: row.hours_disputed,
+      reviewed_hours: row.reviewed_hours,
     },
     now,
   );
-  const { opening_hours_osm: _hours, opening_hours_web: _webHours, ...rest } = row;
-  return { ...rest, open_now };
+  const {
+    opening_hours_osm: _hours,
+    opening_hours_web: _webHours,
+    hours_web_observed_at,
+    osm_element_updated_at,
+    hours_disputed: _disputed,
+    reviewed_hours: _reviewed,
+    beer_evidence,
+    beer_evidence_reason,
+    osm_source_id,
+    website,
+    ...rest
+  } = row;
+  const source = osm_source_id ?? '';
+  const type = source.startsWith('n')
+    ? 'node'
+    : source.startsWith('r') || (source.startsWith('a') && Number(source.slice(1)) % 2 === 1)
+      ? 'relation'
+      : 'way';
+  const id = source.startsWith('a')
+    ? Math.floor(Number(source.slice(1)) / 2)
+    : source.replace(/^[nwr]/, '');
+  return {
+    ...rest,
+    open_now,
+    quality: {
+      beer: beer_evidence,
+      basis: beer_evidence_reason,
+      osm_updated_at: osm_element_updated_at?.toISOString() ?? null,
+      hours_observed_at: hours_web_observed_at?.toISOString() ?? null,
+      hours_source_url:
+        open_now.hours_source === 'website'
+          ? website
+          : open_now.hours_source === 'osm'
+            ? `https://www.openstreetmap.org/${type}/${id}`
+            : null,
+    },
+  };
 };
 
 /** Translate an intent string into SQL flag filters. */
@@ -93,6 +135,15 @@ const hideChainsClause = (sql: Sql, hide: boolean) => (hide ? sql`AND s.is_chain
 
 const minConfidenceClause = (sql: Sql, level: NearbyStore['confidence_level'] | undefined) =>
   level ? sql`AND s.confidence_level::text = ${level}` : sql``;
+
+// Do not fill the 200 nearest / 2,000 map candidate slots with records that
+// cannot have an open-now verdict. Parsing/conflicts are still evaluated in JS.
+const suppliedHoursClause = (sql: Sql, open: boolean) =>
+  open
+    ? sql`AND (
+  s.reviewed_hours IS NOT NULL OR (NOT s.hours_disputed AND s.place_type<>'gasolinera'
+    AND (s.opening_hours_osm IS NOT NULL OR (s.opening_hours_web IS NOT NULL AND s.hours_web_observed_at IS NOT NULL))))`
+    : sql``;
 
 // Source corroboration for published rows (see shared Verification). The
 // serving policy publishes only OSM-backed places; `verified` means the OSM
@@ -155,12 +206,15 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.sells_onsite_beer                                 AS sells_onsite_beer,
         s.opening_hours_osm                                 AS opening_hours_osm,
         s.opening_hours_web                                 AS opening_hours_web,
+        s.hours_web_observed_at, s.osm_element_updated_at, s.hours_disputed,
+        s.reviewed_hours, s.beer_evidence, s.beer_evidence_reason,
+        s.source_local_id AS osm_source_id, s.website,
         s.badges                                            AS badges,
         s.confidence_level                                  AS confidence_level,
         s.confidence_score                                  AS confidence_score,
         s.is_chain                                          AS is_chain,
         ${verificationExpr(sql)}                            AS verification
-      FROM stores s
+      FROM serving_stores s
       LEFT JOIN stores c
         ON c.source_name = s.matched_censo_source
        AND c.source_local_id = s.matched_censo_local_id
@@ -172,6 +226,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         ${placeTypeClause(sql, place_type)}
         ${hideChainsClause(sql, hide_chains)}
         ${minConfidenceClause(sql, min_confidence)}
+        ${suppliedHoursClause(sql, open_now)}
       ORDER BY s.geom::geography <-> origin.g
       LIMIT ${fetchLimit}
     `;
@@ -240,12 +295,15 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         s.sells_onsite_beer    AS sells_onsite_beer,
         s.opening_hours_osm    AS opening_hours_osm,
         s.opening_hours_web    AS opening_hours_web,
+        s.hours_web_observed_at, s.osm_element_updated_at, s.hours_disputed,
+        s.reviewed_hours, s.beer_evidence, s.beer_evidence_reason,
+        s.source_local_id AS osm_source_id, s.website,
         s.badges               AS badges,
         s.confidence_level     AS confidence_level,
         s.confidence_score     AS confidence_score,
         s.is_chain             AS is_chain,
         ${verificationExpr(sql)} AS verification
-      FROM stores s
+      FROM serving_stores s
       LEFT JOIN stores c
         ON c.source_name = s.matched_censo_source
        AND c.source_local_id = s.matched_censo_local_id
@@ -256,6 +314,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         ${placeTypeClause(sql, place_type)}
         ${hideChainsClause(sql, hide_chains)}
         ${minConfidenceClause(sql, min_confidence)}
+        ${suppliedHoursClause(sql, open_now)}
       -- Deterministic spatial-uniform sample: when the viewport holds more
       -- stores than the limit (wide zoom), md5(id) spreads the shown points
       -- evenly across the bbox instead of piling them onto high-confidence
@@ -297,7 +356,7 @@ export async function registerStoresRoutes(app: FastifyInstance): Promise<void> 
         AVG(ST_X(s.geom))::float8 AS lng,
         AVG(ST_Y(s.geom))::float8 AS lat,
         COUNT(*)::int             AS count
-      FROM stores s
+      FROM serving_stores s
       WHERE s.geom && ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)
         AND s.is_published
         AND s.confidence_level <> 'excluded'

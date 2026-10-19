@@ -115,3 +115,10 @@ export const ClusterResponse = z.object({
   clusters: z.array(Cluster),
 });
 export type ClusterResponse = z.infer<typeof ClusterResponse>;
+
+export const PlaceReport = z
+  .object({
+    kind: z.enum(['closed_now', 'closed_permanently', 'no_beer', 'wrong_hours']),
+  })
+  .strict();
+export type PlaceReport = z.infer<typeof PlaceReport>;

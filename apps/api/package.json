@@ -9,7 +9,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:quality-db": "tsx scripts/quality-integration.ts"
   },
   "dependencies": {
     "@cervezadonde/db": "workspace:*",

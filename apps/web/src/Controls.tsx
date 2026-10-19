@@ -189,12 +189,12 @@ export function MoreSheet({
           <span>Abierto según el horario publicado</span>
         </div>
         <div className="legend__row">
-          <span className="legend__ring legend__ring--estimated" />
-          <span>Suele estar abierto a esta hora (estimado)</span>
+          <span className="legend__ring legend__ring--unknown" />
+          <span>Sin horario propio: no se incluye en «Abre ahora»</span>
         </div>
         <div className="legend__row">
           <span className="legend__ring legend__ring--faded" />
-          <span>Cerrado o sin datos</span>
+          <span>Cerrado según horario o sin datos; consulta la ficha</span>
         </div>
         <div className="sheet__title">Datos</div>
         <p className="sheet__note">

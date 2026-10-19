@@ -42,11 +42,15 @@ export function NearestOpenCard({
       </div>
     );
   }
-  if (!store) {
+  if (
+    !store ||
+    !store.open_now.sells_beer_now ||
+    ['estimated', 'none'].includes(store.open_now.hours_source)
+  ) {
     return (
       <div className="nearest nearest--muted">
-        No encontramos locales abiertos según sus horarios a menos de 3 km de tu ubicación con estos
-        filtros.
+        No encontramos opciones con horario de apertura disponible a menos de 3 km con estos
+        filtros. Puede haber otros locales: consulta los puntos sin horario en el mapa.
       </div>
     );
   }

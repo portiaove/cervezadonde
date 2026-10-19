@@ -8,6 +8,8 @@
 // Everything here is pure/config: the Overpass query, the tag filters, and
 // the name-similarity used for matching. The pipeline lives in ingest-osm.ts.
 
+import { assessBeerEvidence } from '@cervezadonde/shared';
+
 export const OSM_SOURCE_NAME = 'osm';
 
 /** amenity values we treat as on-site (barra) beer candidates. */
@@ -99,6 +101,7 @@ export type OsmPlace = {
   shopTag: string | null;
   amenityTag: string | null;
   tags: Record<string, string>;
+  osmUpdatedAt?: string | null;
 };
 
 /** Normalise a name for comparison: strip diacritics, keep alnum, uppercase. */
@@ -272,10 +275,13 @@ export function classifyOsmPlace(place: OsmPlace): OsmClassification {
   if (place.amenityTag && BAR_AMENITIES.has(place.amenityTag)) {
     return { placeType: 'bar', sellsOnsiteBeer: true, sellsTakeawayBeer: false };
   }
-  // Fuel stations reach here only if the ingest filter kept them (they have a
-  // shop tag, or opening_hours as a staffed-retail proxy — see featureToPlace).
+  // Keep the functional type, but hours are never evidence of beer retail.
   if (place.amenityTag === 'fuel') {
-    return { placeType: 'gasolinera', sellsOnsiteBeer: false, sellsTakeawayBeer: true };
+    return {
+      placeType: 'gasolinera',
+      sellsOnsiteBeer: false,
+      sellsTakeawayBeer: assessBeerEvidence(place.tags, 'gasolinera').eligible,
+    };
   }
   switch (place.shopTag) {
     case 'supermarket':

@@ -63,6 +63,14 @@ const open = MapResponse.parse(
   ),
 );
 assert.ok(open.results.every((store) => store.open_now.sells_beer_now));
+assert.ok(
+  open.results.every(
+    (store) =>
+      store.open_now.status === 'open' &&
+      ['osm', 'website', 'reviewed'].includes(store.open_now.hours_source),
+  ),
+  'estimated/unknown schedule leaked into open-now',
+);
 assert.ok(open.results.length > 0);
 const clusters = ClusterResponse.parse(
   await get('/stores/clusters?north=44&south=35&east=5&west=-10&cell=1&hide_chains=false'),
@@ -129,6 +137,20 @@ if (webBase) {
   });
   assert.equal(search.status, 200);
   assert.ok((await search.json()).features.length > 0, 'geocoder returned no results');
+  // Validation failure only: exercise same-origin POST routing without
+  // inserting a test report or modifying any production place.
+  const report = await fetch(`${base}/stores/70654/reports`, {
+    method: 'POST',
+    headers: { Origin: new URL(webBase).origin, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'invalid_smoke_probe' }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  // Local static validation can use a different origin than WEB_ORIGIN.
+  assert.equal(
+    report.status,
+    new URL(webBase).hostname === 'cervezadonde.es' ? 400 : 403,
+    'report route/origin policy failed',
+  );
 }
 console.log(
   JSON.stringify(

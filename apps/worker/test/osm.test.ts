@@ -190,10 +190,10 @@ describe('classifyOsmPlace', () => {
     expect(classifyOsmPlace(place({ amenity: 'bar', shop: 'convenience' })).placeType).toBe('bar');
   });
 
-  it('fuel stations are gasolinera (lata / takeaway)', () => {
+  it('fuel station hours are not evidence of beer retail', () => {
     const c = classifyOsmPlace(place({ amenity: 'fuel', opening_hours: 'Mo-Su 00:00-24:00' }));
     expect(c.placeType).toBe('gasolinera');
-    expect(c.sellsTakeawayBeer).toBe(true);
+    expect(c.sellsTakeawayBeer).toBe(false);
     expect(c.sellsOnsiteBeer).toBe(false);
   });
 

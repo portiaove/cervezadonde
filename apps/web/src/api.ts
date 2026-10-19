@@ -8,6 +8,19 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
+export async function reportPlace(
+  id: string,
+  kind: import('@cervezadonde/shared').PlaceReport['kind'],
+) {
+  const res = await fetch(`${API_URL}/stores/${encodeURIComponent(id)}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (res.status !== 202) throw new Error('report failed');
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   const abort = () => controller.abort();

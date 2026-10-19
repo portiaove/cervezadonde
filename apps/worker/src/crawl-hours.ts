@@ -12,7 +12,7 @@
 
 import { type Sql, getSql } from '@cervezadonde/db';
 import OpeningHours from 'opening_hours';
-import { hoursFromHtml } from './sources/schemaorg.js';
+import { type HoursIdentity, hoursForBusiness } from './sources/schemaorg.js';
 
 const USER_AGENT =
   'cervezadonde-hours-bot/1.0 (+https://cervezadonde.es; horarios para un mapa abierto de cervezas)';
@@ -22,10 +22,11 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const SAME_HOST_DELAY_MS = 600;
 const DEFAULT_CONCURRENCY = 6;
 const DEFAULT_MAX_AGE_DAYS = 90;
+const HOURS_CHECK_VERSION = 'business-hours-v1';
 
 // A URL shared by more stores than this is a brand homepage (mercadona.es
 // × 562…): its hours, if any, would be wrong for the individual shops.
-const MAX_STORES_PER_URL = 3;
+const MAX_STORES_PER_URL = 1;
 
 // Hosts that never carry per-business schema.org hours.
 const SKIP_HOSTS = new Set([
@@ -59,7 +60,7 @@ export type CrawlHoursSummary = {
   durationMs: number;
 };
 
-type QueueItem = { url: string; host: string; storeIds: string[] };
+type QueueItem = { url: string; host: string; storeIds: string[]; identity: HoursIdentity };
 
 const hostOf = (url: string): string | null => {
   try {
@@ -187,15 +188,28 @@ async function loadQueue(
   maxAgeDays: number,
   limit: number | null,
 ): Promise<{ items: QueueItem[]; skippedBrandUrls: number; skippedHosts: number }> {
-  const rows = await sql<{ website: string; ids: string[] }[]>`
-    SELECT website, array_agg(id::text) AS ids
+  const rows = await sql<
+    {
+      website: string;
+      ids: string[];
+      name: string;
+      address: string | null;
+      lat: number;
+      lng: number;
+    }[]
+  >`
+    SELECT website, array_agg(id::text) AS ids, min(name) AS name, min(address) AS address,
+      min(ST_Y(geom)) AS lat, min(ST_X(geom)) AS lng
     FROM stores
     WHERE website IS NOT NULL
       AND opening_hours_osm IS NULL
       AND is_published
       AND confidence_level <> 'excluded'
+      AND beer_eligible AND place_type<>'gasolinera'
       AND (hours_web_checked_at IS NULL
-           OR hours_web_checked_at < now() - make_interval(days => ${maxAgeDays}))
+           OR hours_web_checked_at < now() - make_interval(days => ${maxAgeDays})
+           OR (opening_hours_web IS NOT NULL AND hours_web_observed_at IS NULL
+               AND hours_web_check_version IS DISTINCT FROM ${HOURS_CHECK_VERSION}))
     GROUP BY website
     ORDER BY website
   `;
@@ -213,7 +227,12 @@ async function loadQueue(
       skippedHosts += 1;
       continue;
     }
-    items.push({ url: row.website, host, storeIds: row.ids });
+    items.push({
+      url: row.website,
+      host,
+      storeIds: row.ids,
+      identity: { name: row.name, address: row.address, lat: row.lat, lng: row.lng },
+    });
   }
   const sliced = limit ? items.slice(0, limit) : items;
   return { items: sliced, skippedBrandUrls, skippedHosts };
@@ -270,7 +289,9 @@ export async function crawlHours(opts: {
     await sql`
       UPDATE stores SET
         opening_hours_web = COALESCE(${hours}, opening_hours_web),
+        hours_web_observed_at = CASE WHEN ${hours}::text IS NOT NULL THEN now() ELSE hours_web_observed_at END,
         hours_web_checked_at = now(),
+        hours_web_check_version = ${HOURS_CHECK_VERSION},
         updated_at = now()
       WHERE id = ANY(${storeIds}::bigint[])
     `;
@@ -298,7 +319,7 @@ export async function crawlHours(opts: {
           }
           summary.fetched += 1;
 
-          const hours = hoursFromHtml(html);
+          const hours = hoursForBusiness(html, item.identity);
           if (hours && validatesAsOsmHours(hours)) {
             summary.hoursFound += 1;
             await markChecked(item.storeIds, hours);

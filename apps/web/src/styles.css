@@ -39,6 +39,28 @@ body,
   background: #eaeef2;
 }
 
+.place-report {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.place-report button,
+.place-report select {
+  padding: 9px;
+  max-width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  color: var(--text);
+}
+.place-report label {
+  display: grid;
+  gap: 6px;
+}
+.quality-note {
+  margin-top: 10px;
+}
+
 /* Keep the required, expanded OSM credit below the time/search controls. */
 .maplibregl-ctrl-top-right {
   top: calc(48px + var(--safe-top));
@@ -655,8 +677,8 @@ a {
 .legend__ring--open {
   border: 2.5px solid var(--open);
 }
-.legend__ring--estimated {
-  border: 2px solid #4ade80;
+.legend__ring--unknown {
+  border: 2px solid #cbd5e1;
 }
 .legend__ring--faded {
   border: 1.5px solid #cbd5e1;

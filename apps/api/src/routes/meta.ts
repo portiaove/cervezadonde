@@ -25,9 +25,10 @@ export async function registerMetaRoutes(app: FastifyInstance): Promise<void> {
           count(*) FILTER (
             WHERE is_published
               AND confidence_level <> 'excluded'
-              AND (opening_hours_osm IS NOT NULL OR opening_hours_web IS NOT NULL)
+              AND (reviewed_hours IS NOT NULL OR (NOT hours_disputed AND place_type<>'gasolinera' AND (
+                opening_hours_osm IS NOT NULL OR (opening_hours_web IS NOT NULL AND hours_web_observed_at>now()-interval '180 days'))))
           )                                                                     AS stores_with_hours
-        FROM stores
+        FROM serving_stores
       `;
       return {
         // ISO 8601 (UTC); the client formats it to the user's locale.

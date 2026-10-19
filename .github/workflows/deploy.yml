@@ -17,6 +17,18 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    services:
+      quality-db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: quality_test
+          POSTGRES_USER: quality_test
+          POSTGRES_PASSWORD: local_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quality_test -d quality_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +46,13 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm lint
+
+      - name: Test migrations, report moderation and evidence survival
+        env:
+          DATABASE_URL: postgresql://quality_test:local_ci_only@localhost:5432/quality_test
+        run: |
+          pnpm --filter @cervezadonde/db migrate up
+          pnpm --filter @cervezadonde/api run test:quality-db
 
       # Uses .env.production -> VITE_API_URL=/api (same-origin via Caddy).
       - run: pnpm --filter @cervezadonde/web build

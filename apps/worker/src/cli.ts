@@ -10,10 +10,95 @@ import { ingestMadrid } from './ingest-madrid.js';
 import { ingestOsmCanonical } from './ingest-osm-canonical.js';
 import { ingestOsmPbf } from './ingest-osm-pbf.js';
 import { ingestSample } from './ingest-sample.js';
+import {
+  correctPlaceHours,
+  listPlaceReports,
+  reviewPlaceReport,
+  revokePlaceCorrection,
+} from './place-review.js';
+import { rebuildOsmEvidence } from './rebuild-osm-evidence.js';
 
 const program = new Command();
 
 program.name('cervezadonde-worker').description('Ingestion jobs for cervezadonde.es');
+
+program
+  .command('corrections:hours <source-id> <hours>')
+  .requiredOption('--reviewer <name>')
+  .requiredOption('--note <evidence>')
+  .option('--days <n>', 'Expire in 1–180 days', '90')
+  .action(
+    async (id: string, hours: string, opts: { reviewer: string; note: string; days: string }) => {
+      try {
+        console.log(
+          JSON.stringify(
+            await correctPlaceHours(id, hours, opts.reviewer, opts.note, Number(opts.days)),
+          ),
+        );
+      } catch (err) {
+        console.error(err);
+        process.exitCode = 1;
+      } finally {
+        await closeSql();
+      }
+    },
+  );
+program
+  .command('corrections:revoke <id>')
+  .requiredOption('--reviewer <name>')
+  .requiredOption('--note <reason>')
+  .action(async (id: string, opts: { reviewer: string; note: string }) => {
+    try {
+      console.log(JSON.stringify(await revokePlaceCorrection(id, opts.reviewer, opts.note)));
+    } catch (err) {
+      console.error(err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+
+program
+  .command('evidence:rebuild <files...>')
+  .description('Re-score retained OSM rows from both complete national GeoJSON extracts')
+  .action(async (files: string[]) => {
+    try {
+      console.log(JSON.stringify(await rebuildOsmEvidence(files)));
+    } catch (err) {
+      console.error(err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+program
+  .command('reports:list')
+  .description('List pending user reports (read only)')
+  .action(async () => {
+    try {
+      console.log(JSON.stringify(await listPlaceReports(), null, 2));
+    } catch (err) {
+      console.error(err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
+program
+  .command('reports:review <id> <decision>')
+  .requiredOption('--reviewer <name>')
+  .requiredOption('--note <reason>')
+  .description('Accept/reject one reviewed report; accepting creates durable scoped evidence')
+  .action(async (id: string, decision: string, opts: { reviewer: string; note: string }) => {
+    try {
+      console.log(JSON.stringify(await reviewPlaceReport(id, decision, opts.reviewer, opts.note)));
+    } catch (err) {
+      console.error(err);
+      process.exitCode = 1;
+    } finally {
+      await closeSql();
+    }
+  });
 
 program
   .command('audit:censo-matches')

@@ -22,13 +22,14 @@ export function intentOf(s: AnyStore): MarkerIntent {
 
 export function statusOf(s: AnyStore): MarkerState {
   const { open, sells_beer_now, reason, hours_source } = s.open_now;
-  if (hours_source === 'none') return 'unconfirmed';
+  if (hours_source === 'none' || hours_source === 'estimated' || s.open_now.status === 'unknown')
+    return 'unconfirmed';
   // Open per default schedule (no real hours) → "suele estar abierto".
-  if (sells_beer_now) return hours_source === 'estimated' ? 'estimated' : 'open';
+  if (sells_beer_now) return 'open';
   // Open, but the takeaway ordinance is blocking a sale right now.
   if (open && reason.toLowerCase().includes('ordenanza')) return 'ordinance';
   if (open) return 'unconfirmed';
-  return hours_source === 'estimated' ? 'estimated_closed' : 'closed';
+  return 'closed';
 }
 
 // Marker fill = intent (the lata/barra distinction the legend explains).

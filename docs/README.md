@@ -8,6 +8,7 @@ Spain-wide system that is actually running.
 
 | Document | Role | Authority |
 |---|---|---|
+| [`21-place-evidence-and-feedback.md`](./21-place-evidence-and-feedback.md) | Unknown-hours policy, beer evidence, persistent moderated feedback | **Current recommendation/evidence policy** |
 | [`20-browser-reliability-audit.md`](./20-browser-reliability-audit.md) | October 2026 browser/API regressions, fixes, validation and operational limits | **Current reliability corrections** |
 | [`19-data-reliability-refinement.md`](./19-data-reliability-refinement.md) | Precision-first serving, high-confidence matching and measured before/after | **Current data-serving policy** |
 | [`17-project-atlas.md`](./17-project-atlas.md) | Current product, architecture, flows, API, operations, risks | **Canonical orientation** |

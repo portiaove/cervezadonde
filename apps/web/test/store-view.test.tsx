@@ -40,18 +40,18 @@ describe('truthful place labels', () => {
       ...store,
       open_now: { ...store.open_now, open: false, sells_beer_now: false },
     };
-    expect(statusOf(closed)).toBe('estimated_closed');
+    expect(statusOf(closed)).toBe('unconfirmed');
     expect(renderToStaticMarkup(<StoreCard store={closed} onClose={() => {}} />)).toContain(
-      'Suele estar cerrado',
+      'Horario no confirmado',
     );
   });
 
-  it('qualifies the nearest result and closing time when the schedule is estimated', () => {
+  it('does not recommend a legacy estimated-open result', () => {
     const html = renderToStaticMarkup(
       <NearestOpenCard store={store} loading={false} onSelect={() => {}} />,
     );
-    expect(html).toContain('suele estar abierta');
-    expect(html).toContain('suele cerrar a las 01:00');
+    expect(html).toContain('Puede haber otros locales');
+    expect(html).not.toContain('suele cerrar');
     expect(html).not.toContain('La más cercana abierta');
   });
 

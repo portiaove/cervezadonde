@@ -16,17 +16,26 @@ $COMPOSE exec -T postgres pg_restore --data-only --disable-triggers --no-owner \
   --exit-on-error --file=- < "$DUMP" > "$RESTORE_SQL"
 
 echo "Replacing serving data atomically..."
+bash deploy/backup-quality.sh
 {
   cat <<'SQL'
 \set ON_ERROR_STOP on
 BEGIN;
+CREATE TEMP TABLE quality_before_restore AS
+SELECT (SELECT count(*) FROM place_reports) AS reports,
+       (SELECT count(*) FROM place_corrections) AS corrections;
 TRUNCATE public.store_activities, public.stores, public.import_runs
-  RESTART IDENTITY CASCADE;
+  RESTART IDENTITY RESTRICT;
 SQL
   cat "$RESTORE_SQL"
   cat <<'SQL'
 DO $validation$
 BEGIN
+  IF EXISTS (SELECT 1 FROM quality_before_restore
+    WHERE reports <> (SELECT count(*) FROM place_reports)
+       OR corrections <> (SELECT count(*) FROM place_corrections)) THEN
+    RAISE EXCEPTION 'snapshot restore changed production-owned evidence';
+  END IF;
   IF EXISTS (
     SELECT 1
     FROM public.stores s

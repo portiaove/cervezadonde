@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import { registerGeoRoutes } from './routes/geo.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerReportRoutes } from './routes/reports.js';
 import { registerStoresRoutes } from './routes/stores.js';
 
 // opening_hours evaluates wall-clock dates. UTC avoids host DST gaps while
@@ -31,6 +32,7 @@ async function main() {
   await app.register(registerMetaRoutes);
   await app.register(registerGeoRoutes);
   await app.register(registerStoresRoutes, { prefix: '/stores' });
+  await app.register(registerReportRoutes, { prefix: '/stores' });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

@@ -126,7 +126,7 @@ describe('isOpenNow', () => {
   });
 });
 
-describe('canSellBeerNow — null hours fall back to the default schedule', () => {
+describe('canSellBeerNow — unknown hours never imply open', () => {
   it('invalid published hours mean unknown, not confirmed closed', () => {
     const r = canSellBeerNow({ ...baseBar, opening_hours_osm: 'garbage' }, madridAt(13, 0));
     expect(r.hours_source).toBe('none');
@@ -135,7 +135,12 @@ describe('canSellBeerNow — null hours fall back to the default schedule', () =
 
   it('uses website hours if OSM hours cannot be evaluated', () => {
     const r = canSellBeerNow(
-      { ...baseBar, opening_hours_osm: 'garbage', opening_hours_web: '24/7' },
+      {
+        ...baseBar,
+        opening_hours_osm: 'garbage',
+        opening_hours_web: '24/7',
+        hours_web_observed_at: madridAt(12, 0),
+      },
       madridAt(13, 0),
     );
     expect(r.hours_source).toBe('website');
@@ -146,12 +151,13 @@ describe('canSellBeerNow — null hours fall back to the default schedule', () =
     const r = canSellBeerNow({ ...baseBar, opening_hours_osm: 'Mo-Su unknown' }, madridAt(13, 0));
     expect(r.hours_source).toBe('none');
   });
-  it('bar without hours at 13:00 → estimated open ("suele estar abierto")', () => {
+  it('Tower Paradise: bar without hours at 13:00 is unknown, not recommended', () => {
     const r = canSellBeerNow({ ...baseBar, opening_hours_osm: null }, madridAt(13, 0));
-    expect(r.open).toBe(true);
-    expect(r.sells_beer_now).toBe(true);
-    expect(r.hours_source).toBe('estimated');
-    expect(r.reason).toContain('Suele estar abierto');
+    expect(r.open).toBe(false);
+    expect(r.status).toBe('unknown');
+    expect(r.sells_beer_now).toBe(false);
+    expect(r.hours_source).toBe('none');
+    expect(r.reason).toContain('Horario no confirmado');
   });
 
   it("'otro' without hours → no estimate, horario no confirmado", () => {
@@ -174,50 +180,50 @@ describe('canSellBeerNow — null hours fall back to the default schedule', () =
 const madridOn = (isoDay: string, hh: number, mm: number): Date =>
   new Date(`${isoDay}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+02:00`);
 
-describe('canSellBeerNow — default schedules (estimated)', () => {
+describe('canSellBeerNow — no invented schedules at any time', () => {
   const barNoHours: PlaceForOpenNow = { ...baseBar, opening_hours_osm: null };
 
-  it('bar, Wednesday 00:30 → still open (Mo-Th until 01:00)', () => {
+  it('bar, Wednesday 00:30 without hours remains unknown', () => {
     const r = canSellBeerNow(barNoHours, madridOn('2026-06-03', 0, 30));
-    expect(r.sells_beer_now).toBe(true);
-    expect(r.hours_source).toBe('estimated');
+    expect(r.sells_beer_now).toBe(false);
+    expect(r.hours_source).toBe('none');
   });
 
-  it('bar, Wednesday 02:30 → estimated closed', () => {
+  it('bar, Wednesday 02:30 is not labelled closed without hours', () => {
     const r = canSellBeerNow(barNoHours, madridOn('2026-06-03', 2, 30));
     expect(r.open).toBe(false);
-    expect(r.reason).toContain('Suele estar cerrado');
+    expect(r.status).toBe('unknown');
   });
 
-  it('bar, Saturday 01:30 (Friday night) → open (Fr-Sa until 02:00)', () => {
+  it('bar, Saturday 01:30 without hours cannot be recommended', () => {
     const r = canSellBeerNow(barNoHours, madridOn('2026-06-06', 1, 30));
-    expect(r.sells_beer_now).toBe(true);
+    expect(r.sells_beer_now).toBe(false);
   });
 
-  it('supermercado, Sunday 16:00 → estimated closed (Su 10:00-15:00)', () => {
+  it('supermarket, Sunday 16:00 without hours remains unknown', () => {
     const r = canSellBeerNow(
       { place_type: 'supermercado', sells_takeaway_beer: true, opening_hours_osm: null },
       madridOn('2026-06-07', 16, 0),
     );
     expect(r.open).toBe(false);
-    expect(r.hours_source).toBe('estimated');
+    expect(r.hours_source).toBe('none');
   });
 
-  it('alimentación, 21:00 → estimated open and allowed to sell', () => {
+  it('food shop, 21:00 without hours cannot be recommended', () => {
     const r = canSellBeerNow(
       { place_type: 'alimentacion', sells_takeaway_beer: true, opening_hours_osm: null },
       madridAt(21, 0),
     );
-    expect(r.sells_beer_now).toBe(true);
-    expect(r.reason).toContain('Suele estar abierto');
+    expect(r.sells_beer_now).toBe(false);
+    expect(r.status).toBe('unknown');
   });
 
-  it('tienda 24h, 04:00 → estimated open but ordinance blocks the sale', () => {
+  it('24h category alone is not an actual 24/7 schedule', () => {
     const r = canSellBeerNow({ ...baseShop24h, opening_hours_osm: null }, madridAt(4, 0));
-    expect(r.open).toBe(true);
+    expect(r.open).toBe(false);
     expect(r.sells_beer_now).toBe(false);
-    expect(r.reason).toContain('Ordenanza');
-    expect(r.hours_source).toBe('estimated');
+    expect(r.status).toBe('unknown');
+    expect(r.hours_source).toBe('none');
   });
 });
 
@@ -226,7 +232,7 @@ describe('canSellBeerNow — bars are never subject to the ordinance', () => {
     const r = canSellBeerNow(baseBar, madridAt(13, 0));
     expect(r.open).toBe(true);
     expect(r.sells_beer_now).toBe(true);
-    expect(r.reason).toContain('Bar abierto');
+    expect(r.reason).toContain('según su horario');
   });
   it('bar at 23:30 (within hours) → sells_beer_now=true (ordinance does NOT apply)', () => {
     const r = canSellBeerNow(baseBar, madridAt(23, 30));
@@ -240,7 +246,7 @@ describe('canSellBeerNow — bars are never subject to the ordinance', () => {
     const r = canSellBeerNow(baseBar, madridAt(3, 0));
     expect(r.open).toBe(false);
     expect(r.sells_beer_now).toBe(false);
-    expect(r.reason).toBe('Cerrado.');
+    expect(r.reason).toBe('Cerrado según su horario.');
   });
 });
 
@@ -259,7 +265,7 @@ describe('canSellBeerNow — shops and the ordinance', () => {
     const r = canSellBeerNow(baseShop, madridAt(22, 0));
     // The shop closes at exactly 22:00 per its hours, so it's already closed.
     expect(r.open).toBe(false);
-    expect(r.reason).toBe('Cerrado.');
+    expect(r.reason).toBe('Cerrado según su horario.');
   });
   it('shop OPEN past 22:00 still gets ordinance reason', () => {
     const r = canSellBeerNow(
@@ -273,7 +279,7 @@ describe('canSellBeerNow — shops and the ordinance', () => {
   it('shop without sells_takeaway_beer at 13:00 → sells_beer_now=false, reason no vende', () => {
     const r = canSellBeerNow({ ...baseShop, sells_takeaway_beer: false }, madridAt(13, 0));
     expect(r.sells_beer_now).toBe(false);
-    expect(r.reason).toContain('No vende alcohol');
+    expect(r.reason).toContain('No consta venta');
   });
 });
 

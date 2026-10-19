@@ -211,3 +211,55 @@ export function specsToOsmHours(specs: HoursSpec[]): string | null {
 export function hoursFromHtml(html: string): string | null {
   return specsToOsmHours(findHoursSpecs(html));
 }
+
+export type HoursIdentity = { name: string; address: string | null; lat: number; lng: number };
+const identityText = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+/** Never union hours from multiple branches, kitchen departments or reservation
+ * services. Require a matching business name AND address/coordinate evidence. */
+export function hoursForBusiness(html: string, expected: HoursIdentity): string | null {
+  const found = new Set<string>();
+  for (const payload of extractJsonLd(html))
+    for (const node of walkNodes(payload)) {
+      const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
+      if (
+        !types.some(
+          (t) =>
+            typeof t === 'string' &&
+            /(?:^|\/)(LocalBusiness|Restaurant|BarOrPub|CafeOrCoffeeShop|Store|GroceryStore|ConvenienceStore|Supermarket)$/.test(
+              t,
+            ),
+        )
+      )
+        continue;
+      if (
+        typeof node.name !== 'string' ||
+        !expected.name ||
+        identityText(node.name) !== identityText(expected.name)
+      )
+        continue;
+      const geo = isRecord(node.geo) ? node.geo : null;
+      const lat = geo?.latitude == null ? Number.NaN : Number(geo.latitude);
+      const lng = geo?.longitude == null ? Number.NaN : Number(geo.longitude);
+      const nearby =
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        Math.hypot((lat - expected.lat) * 111_000, (lng - expected.lng) * 85_000) <= 100;
+      const address = isRecord(node.address) ? node.address.streetAddress : null;
+      const sameAddress =
+        typeof address === 'string' &&
+        !!expected.address &&
+        identityText(address) === identityText(expected.address);
+      // Explicit contradictory coordinates override a matching textual address.
+      if (Number.isFinite(lat) && Number.isFinite(lng) && !nearby) continue;
+      if (!nearby && !sameAddress) continue;
+      const direct = `<script type="application/ld+json">${JSON.stringify({ openingHours: node.openingHours, openingHoursSpecification: node.openingHoursSpecification })}</script>`;
+      const hours = hoursFromHtml(direct);
+      if (hours) found.add(hours);
+    }
+  return found.size === 1 ? ([...found][0] ?? null) : null;
+}

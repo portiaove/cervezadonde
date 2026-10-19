@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { type Sql, getSql } from '@cervezadonde/db';
+import { BEER_POLICY_VERSION, assessBeerEvidence } from '@cervezadonde/shared';
 import { applyCensoRefinement } from './censo-refinement.js';
 import { getCacheDir } from './sources/madrid.js';
 import {
@@ -136,9 +137,20 @@ async function bulkUpsertStores(
     const cscores: number[] = [];
     const clevels: string[] = [];
     const chains: number[] = [];
+    const rawTags: string[] = [];
+    const osmDates: (string | null)[] = [];
+    const eligible: number[] = [];
+    const evidence: string[] = [];
+    const evidenceReasons: string[] = [];
 
     for (const p of part) {
       const c = classifyOsmPlace(p);
+      const quality = assessBeerEvidence(p.tags, c.placeType);
+      rawTags.push(JSON.stringify(p.tags));
+      osmDates.push(p.osmUpdatedAt ?? null);
+      eligible.push(quality.eligible ? 1 : 0);
+      evidence.push(quality.status);
+      evidenceReasons.push(quality.reason);
       byType[c.placeType] = (byType[c.placeType] ?? 0) + 1;
       slids.push(p.sourceLocalId ?? `${p.osmType}/${p.osmId}`);
       names.push(p.name ?? '');
@@ -147,12 +159,12 @@ async function bulkUpsertStores(
       lons.push(p.lon);
       lats.push(p.lat);
       ptypes.push(c.placeType);
-      onsites.push(c.sellsOnsiteBeer ? 1 : 0);
-      takeaways.push(c.sellsTakeawayBeer ? 1 : 0);
+      onsites.push(c.sellsOnsiteBeer && quality.eligible ? 1 : 0);
+      takeaways.push(c.sellsTakeawayBeer && quality.eligible ? 1 : 0);
       hours.push(p.openingHours);
       websites.push(extractWebsite(p.tags));
-      cscores.push(p.openingHours ? 80 : 55);
-      clevels.push(p.openingHours ? 'high' : 'medium');
+      cscores.push(quality.status === 'documented' ? 80 : 55);
+      clevels.push(quality.status === 'documented' ? 'high' : 'medium');
       chains.push(p.tags.brand || p.tags['brand:wikidata'] ? 1 : 0);
     }
 
@@ -162,20 +174,24 @@ async function bulkUpsertStores(
         geom, place_type, sells_onsite_beer, sells_takeaway_beer,
         opening_hours_osm, website, badges, confidence_score, confidence_level,
         scoring_version, is_chain, last_import_run_id, last_seen_osm_at,
-        is_published, publication_reason
+        is_published, publication_reason, osm_tags, osm_element_updated_at,
+        beer_eligible, beer_evidence, beer_evidence_reason
       )
       SELECT
         t.slid, ${OSM_SOURCE_NAME}, t.name, t.nname, t.addr,
         ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326),
         t.ptype::place_type, (t.onsite = 1), (t.takeaway = 1),
         t.hours, t.website, ARRAY[]::text[], t.cscore, t.clevel::confidence_level,
-        'osm-v1', (t.chain = 1), ${importRunId}, now(), TRUE, NULL
+        ${BEER_POLICY_VERSION}, (t.chain = 1), ${importRunId}, now(), TRUE, NULL,
+        t.raw_tags::jsonb, t.osm_date::timestamptz, (t.eligible=1), t.evidence, t.evidence_reason
       FROM unnest(
         ${slids}::text[], ${names}::text[], ${nnames}::text[], ${addrs}::text[],
         ${lons}::float8[], ${lats}::float8[], ${ptypes}::text[],
         ${onsites}::int[], ${takeaways}::int[], ${hours}::text[], ${websites}::text[],
-        ${cscores}::int[], ${clevels}::text[], ${chains}::int[]
-      ) AS t(slid, name, nname, addr, lon, lat, ptype, onsite, takeaway, hours, website, cscore, clevel, chain)
+        ${cscores}::int[], ${clevels}::text[], ${chains}::int[],
+        ${rawTags}::text[], ${osmDates}::text[], ${eligible}::int[],
+        ${evidence}::text[], ${evidenceReasons}::text[]
+      ) AS t(slid, name, nname, addr, lon, lat, ptype, onsite, takeaway, hours, website, cscore, clevel, chain, raw_tags, osm_date, eligible, evidence, evidence_reason)
       ON CONFLICT (source_name, source_local_id) DO UPDATE SET
         name = EXCLUDED.name,
         normalized_name = EXCLUDED.normalized_name,
@@ -186,8 +202,17 @@ async function bulkUpsertStores(
         sells_takeaway_beer = EXCLUDED.sells_takeaway_beer,
         opening_hours_osm = EXCLUDED.opening_hours_osm,
         website = EXCLUDED.website,
+        hours_web_observed_at = CASE WHEN stores.website IS DISTINCT FROM EXCLUDED.website THEN NULL ELSE stores.hours_web_observed_at END,
+        hours_web_checked_at = CASE WHEN stores.website IS DISTINCT FROM EXCLUDED.website THEN NULL ELSE stores.hours_web_checked_at END,
+        hours_web_check_version = CASE WHEN stores.website IS DISTINCT FROM EXCLUDED.website THEN NULL ELSE stores.hours_web_check_version END,
         confidence_score = EXCLUDED.confidence_score,
         confidence_level = EXCLUDED.confidence_level,
+        scoring_version = EXCLUDED.scoring_version,
+        osm_tags = EXCLUDED.osm_tags,
+        osm_element_updated_at = EXCLUDED.osm_element_updated_at,
+        beer_eligible = EXCLUDED.beer_eligible,
+        beer_evidence = EXCLUDED.beer_evidence,
+        beer_evidence_reason = EXCLUDED.beer_evidence_reason,
         -- Censo matches corroborate identity but must never own canonical OSM
         -- fields. Clear values left by the legacy proximity enrichment.
         district = NULL,

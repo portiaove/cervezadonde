@@ -129,21 +129,27 @@ const buildAddress = (props: Record<string, string>): string | null => {
 export function featureToPlace(feature: {
   id?: string;
   geometry: { type: string; coordinates: unknown };
-  properties?: Record<string, string>;
+  properties?: Record<string, string | number>;
 }): OsmPlace | null {
   const point = centroid(feature.geometry);
   if (!point) return null;
-  const props = feature.properties ?? {};
+  const props = Object.fromEntries(
+    Object.entries(feature.properties ?? {}).filter(
+      ([key, value]) => !key.startsWith('@') && typeof value === 'string',
+    ),
+  ) as Record<string, string>;
+  const timestamp = feature.properties?.['@timestamp'];
+  const date =
+    typeof timestamp === 'number'
+      ? new Date(timestamp * 1000)
+      : timestamp
+        ? new Date(timestamp)
+        : null;
   const okAmenity = props.amenity !== undefined && AMENITY_SET.has(props.amenity);
   const okShop = props.shop !== undefined && SHOP_SET.has(props.shop);
-  // Fuel stations: keep only ones that look staffed/retail — a recognised shop
-  // tag (okShop above) or opening_hours as a proxy — and never unattended
-  // pumps. Bare amenity=fuel with no hours is dropped (gasolinera decision).
-  const okFuel =
-    props.amenity === 'fuel' &&
-    props.opening_hours !== undefined &&
-    props.automated !== 'yes' &&
-    props.self_service !== 'yes';
+  // Retain fuel POIs as evidence, including non-retail pumps. The independent
+  // beer policy hides unsupported candidates, rather than deleting them.
+  const okFuel = props.amenity === 'fuel';
   if (!okAmenity && !okShop && !okFuel) return null;
   const id = feature.id ?? '';
   const osmType = OSM_TYPE[id[0] ?? ''] ?? 'node';
@@ -161,10 +167,11 @@ export function featureToPlace(feature: {
     shopTag: props.shop ?? null,
     amenityTag: props.amenity ?? null,
     tags: props,
+    osmUpdatedAt: date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
   };
 }
 
-async function parseGeojsonl(path: string): Promise<OsmPlace[]> {
+export async function parseGeojsonl(path: string): Promise<OsmPlace[]> {
   const places: OsmPlace[] = [];
   const rl = createInterface({
     input: createReadStream(path),
@@ -232,6 +239,7 @@ export async function ingestOsmPbf(opts: {
       '-f',
       'geojsonseq',
       '--add-unique-id=type_id',
+      '--attributes=timestamp,version',
       '--geometry-types=point,polygon',
       `/data/${part.region}-filtered.osm.pbf`,
     ]);

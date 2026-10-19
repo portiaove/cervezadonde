@@ -61,15 +61,17 @@ export type PlaceType = z.infer<typeof PlaceType>;
  */
 /** Where the hours behind an open-now verdict came from. */
 export const HoursSource = z.enum([
-  'osm', // real opening_hours from OSM — "confirmado"
-  'website', // crawled from the business's own site (crawl:hours) — "confirmado"
-  'estimated', // default schedule for the place_type — "horario habitual"
-  'none', // no hours and no applicable default
+  'osm', // published schedule, not a physical/live confirmation
+  'website', // identity-matched website schedule, observed within 180 days
+  'estimated', // legacy response compatibility only; never emitted now
+  'none', // no usable, undisputed place-specific schedule
+  'reviewed', // a moderated, time-limited local correction
 ]);
 export type HoursSource = z.infer<typeof HoursSource>;
 
 export const OpenNowBlock = z.object({
   open: z.boolean(),
+  status: z.enum(['open', 'closed', 'unknown']).optional(),
   closes_at: z.string().nullable(),
   sells_beer_now: z.boolean(),
   reason: z.string(),
@@ -117,5 +119,14 @@ export const NearbyStore = z.object({
   is_chain: z.boolean(),
   open_now: OpenNowBlock,
   verification: Verification,
+  quality: z
+    .object({
+      beer: z.enum(['likely', 'documented', 'unknown', 'no']),
+      basis: z.string(),
+      osm_updated_at: z.string().nullable(),
+      hours_observed_at: z.string().nullable(),
+      hours_source_url: z.string().nullable(),
+    })
+    .optional(),
 });
 export type NearbyStore = z.infer<typeof NearbyStore>;
