@@ -69,6 +69,36 @@ const hostOf = (url: string): string | null => {
   }
 };
 
+export function isSkippedHoursUrl(url: string): boolean {
+  const host = hostOf(url);
+  if (!host || !/^https?:\/\//i.test(url)) return true;
+  // Keep legitimate business sites on sites.google.com, while excluding Maps
+  // country domains and shared Maps links as well as the original .com hosts.
+  return (
+    SKIP_HOSTS.has(host) || host.endsWith('.goo.gl') || /^(?:maps\.)?google\.[a-z.]+$/.test(host)
+  );
+}
+
+/** Apply the same source policy at every redirect, before contacting its host. */
+export async function fetchHoursSource(url: string, timeoutMs: number): Promise<Response | null> {
+  let current = url;
+  const signal = AbortSignal.timeout(timeoutMs);
+  for (let redirects = 0; redirects <= 5; redirects++) {
+    if (isSkippedHoursUrl(current)) return null;
+    const response = await fetch(current, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'text/html, text/plain' },
+      redirect: 'manual',
+      signal,
+    });
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get('location');
+    await response.body?.cancel();
+    if (!location) return null;
+    current = new URL(location, current).toString();
+  }
+  return null;
+}
+
 /** The string must survive the exact parser the API evaluates with. */
 const validatesAsOsmHours = (hours: string): boolean => {
   try {
@@ -86,12 +116,8 @@ const validatesAsOsmHours = (hours: string): boolean => {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 async function fetchCapped(url: string): Promise<string | null> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok || !res.body) return null;
+  const res = await fetchHoursSource(url, FETCH_TIMEOUT_MS);
+  if (!res?.ok || !res.body) return null;
   const type = res.headers.get('content-type') ?? '';
   if (!type.includes('text/html') && !type.includes('application/xhtml')) return null;
 
@@ -126,11 +152,8 @@ async function isAllowedByRobots(
   if (rules === undefined) {
     rules = 'allow-all';
     try {
-      const res = await fetch(`${key}/robots.txt`, {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(5_000),
-      });
-      if (res.ok) {
+      const res = await fetchHoursSource(`${key}/robots.txt`, 5_000);
+      if (res?.ok) {
         const text = await res.text();
         const disallows: string[] = [];
         let applies = false;
@@ -186,7 +209,7 @@ async function loadQueue(
       continue;
     }
     const host = hostOf(row.website);
-    if (!host || SKIP_HOSTS.has(host)) {
+    if (!host || isSkippedHoursUrl(row.website)) {
       skippedHosts += 1;
       continue;
     }

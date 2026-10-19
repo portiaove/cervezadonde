@@ -136,3 +136,44 @@ were then added to prevent the confirmed missing-coverage issue returning.
 
 Source: [Geofabrik Spain coverage note](https://download.geofabrik.de/europe/spain.html)
 and [separate Canary Islands extract](https://download.geofabrik.de/africa/canary-islands.html).
+
+## Production validation and data renewal
+
+Code commits `735b0c1` and `7011f5d` deployed successfully through GitHub Actions
+on 2026-10-19. Tests, types, lint and builds passed in CI. Caddy now serves the
+index with revalidation, hashed assets as immutable, and missing scripts as
+404. The prior MapLibre chunk remains available for cached clients.
+
+The four censos and combined national OSM import succeeded locally (runs
+47–51). The main snapshot was then restored atomically in production:
+
+| Check | Renewed snapshot |
+|---|---:|
+| Physical retained places | 245,305 |
+| Published OSM-backed places | 183,378 |
+| Published non-OSM places | 0 |
+| Canary places (previously 0) | 11,099 |
+| High-precision official matches | 8,676 |
+| Vanished OSM rows retained but unpublished | 906 |
+| Duplicate matches / missing provenance / orphan references | 0 |
+| OSM import time | 2026-10-19T11:26:13.539Z |
+
+The real HTTP smoke suite passed in both local and production environments:
+Madrid, Barcelona, Sevilla, Bilbao, Palma, Tenerife, Las Palmas, Ceuta and
+Melilla. It also validated map filters, clusters, assets, cache headers, 404
+handling, a valid CARTO PNG/CORS response and Photon search. A GPU/browser
+render check is still unavailable because no browser is connected.
+
+Recovery copies were retained at `logs/backups/before-refresh-20261019.dump`
+locally and `/root/cervezadonde/logs/backups/before-reliability-20261019.dump`
+on the VPS.
+
+Website-hour checks are incremental. The original full refresh was deliberately
+stopped during its hours phase after approximately 1,000 URLs so that the
+crawler could resume with corrected Google Maps country-domain and redirect
+exclusions. Public business pages hosted on Google Sites remain allowed.
+Three regression tests cover those source boundaries. The resumed crawl uses
+24 parallel origin hosts with the existing per-host sequential processing and
+delay. The first refresh transcript records that controlled interruption, not
+an OSM/censo import failure. Its final hours result and publication are recorded
+after completion. All 233 automated tests, typechecking and lint pass locally.
